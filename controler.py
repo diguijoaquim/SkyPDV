@@ -9,7 +9,7 @@ import os
 from sqlalchemy import or_,asc,desc
 from sqlalchemy.sql import func
 from collections import defaultdict
-
+from local import *
 
 info= {
     "app":"JP Invest",
@@ -170,7 +170,13 @@ def ContaInfoToVenda(id=1):
     return pedidos_json
    
 
-
+def userLoged():
+        try:
+            user=db.query(Usuario).filter_by(username=get_logged_user()['username']).first()
+            return user
+        except:
+            return None
+        
 def ContaInfo(id=1):
     banco=sessionmaker(bind=engine)
     bb=banco()

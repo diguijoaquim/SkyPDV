@@ -1,4 +1,4 @@
-#Criado por Ghost 04- Diqui Joaquim 
+#Criado por Ghost04 - Diqui Joaquim 
 import os
 import shutil
 import flet as ft
@@ -13,15 +13,18 @@ from controler import ContaInfoToVenda
 from sqlalchemy import asc
 from local import *
 
+from pages.settings import setting
+from pages.products import produtoBody
+from pages.estoque import estoquePage
+from pages.tables import tablePage
+from pages.money import moneyPage
+from pages.relatorio import relatorioPage
+
 os.environ["FLET_WS_MAX_MSG_SIZE"] = "8000000"
 
-selected_file_path = None
 logging.basicConfig(level=logging.INFO)
- 
-
-    
+selected_file_path = None
 banco=isDataBase()
-
 current_date = datetime.now()
 quantidade_item=0
 preco_total=0.00
@@ -29,9 +32,6 @@ carrinho = []
 carrinho_s=[]
 day = current_date.strftime("%d-%m-%Y")
 hora=""
-data_view="00-00-0000"
-vendas_view=0
-total_view=0.00
 iva_p = 0.16
 total_valor=0
 codigo_barras=''
@@ -43,12 +43,6 @@ username=''
 caixa=''
 selected_item_id=None
 
-
-relatorios=ft.Column(controls=[
-                ft.Text(f"Data: {data_view}"),
-                ft.Text(f"Vendas: {vendas_view}"),
-                ft.Text(f"Total: {total_view} MT")
-                               ])
 dlg_edit = ft.AlertDialog(
         title=ft.Text("Atualizar o Produto", size=24))
 settingBody=ft.Container(content=ft.Row([]))
@@ -74,7 +68,6 @@ def main(page: ft.Page):
             adicionar_Carinho_barCode(codigo_barras)
             codigo_barras = ""  
 
-    
     def update_time():
         global hora 
         current_date = datetime.now()
@@ -92,116 +85,15 @@ def main(page: ft.Page):
         options=[ft.dropdown.Option(categoria.nome) for categoria in categoria_lista]
     )
             
-
     global ultima_venda
-
-    def userLoged():
-        try:
-            user=db.query(Usuario).filter_by(username=get_logged_user()['username']).first()
-            return user
-        except:
-            return None
-    estoqueBody=ft.Container()
-
-    def Entradas(e):
-        entradas=getEntradas(getRelatorioUnico(day).id)
-        content=ft.Column(height=500)
-        for nome, quantidade in entradas.items():
-            content.controls.append(ft.Text(f"{nome}---{quantidade}"))
-
-        entrada_dialog=ft.AlertDialog(title=ft.Text('Entradas'),content=content)
-        entrada_dialog.actions=[ft.ElevatedButton("fechar",on_click=lambda e: page.close(entrada_dialog))]
-        page.open(entrada_dialog)
-
-    def Saidas(e):
-        saidas=getSaidas(getRelatorioUnico(day).id)
-        content=ft.Column(height=500)
-        saida_dialog=ft.AlertDialog(title=ft.Text('Saidas'),content=content,actions=[
-            ft.ElevatedButton("fechar",bgcolor=ft.Colors.RED_400)])
-        saida_dialog.actions=[ft.ElevatedButton("fechar",on_click=lambda e: page.close(saida_dialog))]
-
-
-        for nome, quantidade in saidas.items():
-            content.controls.append(ft.Text(f"{nome}---{quantidade}"))
-            
-
-        page.open(saida_dialog)
-
-    def updateEstoquePage():
-        historico=ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Nome")),
-                ft.DataColumn(ft.Text("Estoque Inicial"),numeric=True),
-                ft.DataColumn(ft.Text("Entradas"), numeric=True),
-                ft.DataColumn(ft.Text("saidas"), numeric=True),
-                ft.DataColumn(ft.Text("Estoque Atual"), numeric=True),
-            ],height=altura-100)
-        try:
-            for estoque in getHistoricoEstoque(getRelatorioUnico(day).id):
-                historico.rows.append(
-                    ft.DataRow(cells=[
-                        ft.DataCell(ft.Text(estoque['nome'])),
-                        ft.DataCell(ft.Text(estoque['estoque_inicial'])),
-                        ft.DataCell(ft.Text(estoque['entrada'])),
-                        ft.DataCell(ft.Text(estoque['saida'])),
-                        ft.DataCell(ft.Text(estoque['estoque_atual']))
-                        ])
-            )
-        except:
-            pass
-        card_historico=ft.Container(padding=10,content=ft.Column([
-            ft.Row([
-                ft.CupertinoButton("Ver Entradas",bgcolor=ft.Colors.ORANGE_600,on_click=Entradas),
-                ft.CupertinoButton("Ver Saidas",bgcolor=ft.Colors.ORANGE_600,on_click=Saidas),
-            ]),ft.Card(content=historico)
-        ]))
-        estoqueBody.content=card_historico
-        body.content=estoqueBody
-        page.update()
+  
     def chage_nav2(e):
         selected_index=e.control.selected_index
+        nav_rail.selected_index=None
 
-        if selected_index == 1:
+        if selected_index == 0:
             if(get_logged_user()['cargo'])=='admin':
-                funcionarios.clear()
-                for i in getFuncionarios():
-                    funcionarios.append(ft.DataRow(
-                            cells=[
-                                ft.DataCell(ft.Text(i.nome)),
-                                ft.DataCell(ft.Text(i.username)),
-                                ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE,key=i.id,on_click=deletar)),
-                            ],
-                        ),)
-                    tabela.rows=funcionarios
-                ft.Text(get_logged_user()['username'],weight="bold")
-                settingBody=ft.Container(content=ft.Column(controls=[
-                    ft.Text("Configuracoes",size=34,weight="bold"),
-                        ft.Row(controls=[
-                            ft.Card(content=ft.Container(padding=10,content=ft.Column(controls=[
-                            ft.Row(controls=[
-                                ft.Text("Username: "),ft.Text(get_logged_user()['username'],weight="bold")
-                            ]),
-                            ft.Row(controls=[
-                                ft.Text("Nome: "),ft.Text(get_logged_user()['nome'],weight="bold")
-                            ]),
-                            ft.Row(controls=[
-                                ft.Text("Papel: "),ft.Text(get_logged_user()['cargo'],weight="bold")
-                            ]),
-                            
-                        ]))),
-                
-                ft.Card(content=ft.Container(padding=40,content=ft.Column(controls=[
-                    ft.FilledButton(f"mudar a senha",on_click=chang_password),
-                    
-                    ft.FilledButton(f"adicionar user",on_click=addUser)      
-                ])))
-                
-
-                ]),
-                tabela
-                
-                
-                ]))
+                settingBody=setting(pagex=page)
                 body.content = settingBody
             else:
                 page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
@@ -219,6 +111,7 @@ def main(page: ft.Page):
             
     def chage_nav(e):
         selected_index=e.control.selected_index
+        bottom_nav.selected_index=None
         if selected_index == 0:
             body.content = ft.Container(
             bgcolor="#e1e0e0",
@@ -269,27 +162,21 @@ def main(page: ft.Page):
             update_menu()
             page.update()
         elif selected_index == 1:
-            body.content = relatoriosBody
-            relatorio_update()
+            #we add product page hire with this event
+            body.content = produtoBody(page,update_menu)
             page.update()
         elif selected_index == 2:
-            update_produtos()
-
-
-            produtos_table_itens.content=ft.Card(content=ft.Container(expand=True,padding=10,
-                     content=ft.ResponsiveRow(controls=[
-                        ft.Column(controls=[
-                           ft.ResponsiveRow(controls=[
-                            produtos
-                           ])
-                        ],scroll=ft.ScrollMode.AUTO,height=page.window.height-10)
-                    ],)))
-            
-            
-            body.content = produtoBody
+            body.content=estoquePage(page)
             page.update()
         elif selected_index == 3:
-            updateEstoquePage()
+            body.content=moneyPage(page)
+            page.update()
+        elif selected_index == 4:
+            body.content=tablePage(page)
+            page.update()
+        elif selected_index==5:
+            body.content = relatorioPage(page)
+            page.update()
         else:
             page.clean()
             page.floating_action_button=None
@@ -308,8 +195,6 @@ def main(page: ft.Page):
             'senha':user.senha   
         }
 
-    
-
     imagens=os.path.join(os.getenv("LOCALAPPDATA"), ".jpInvest/img")
     
     def file_picker_result(e: ft.FilePickerResultEvent):
@@ -325,21 +210,16 @@ def main(page: ft.Page):
     status_text = ft.Text()
     file_picker = ft.FilePicker(on_result=file_picker_result)
     page.overlay.append(file_picker)
-    select_button = ft.ElevatedButton(text="Selecionar Foto", on_click=lambda _: file_picker.pick_files(allow_multiple=False))
     usname=ft.TextField(label="Nome do usuario")
     uspass=ft.TextField(label="Senha do Usuario")
-    vendas=ft.ListView(height=500)
+    
     def entrar(e):
         global username,caixa
         result=StartLogin(username,login_input.value)
         if(result != False):
             update_menu()
-    
-            page.client_storage.set("loged",True)
             card.content=choice_perfil
-            page.floating_action_button=ft.FloatingActionButton(
-                        icon=ft.Icons.ADD, on_click=add_item
-                    )
+            
             username=e.control.key
             login_perfil.offset = ft.transform.Offset(0, 0)
             login_input.value=''
@@ -579,9 +459,6 @@ def main(page: ft.Page):
             contas.append(ft.dropdown.Option(conta.cliente))
         page.update()
 
-    
-    
-
     def deletar_contas(e):
         id = e.control.key
         conta = db.query(ContasAbertas).filter_by(id=id).first()
@@ -595,8 +472,6 @@ def main(page: ft.Page):
     def update_contas_list():
         # Limpar as linhas da tabela antes de adicionar novas
         tabela_contas.rows.clear()
-        
-
         # Adicionar as contas atualizadas na tabela
         for conta in getContas():
             tabela_contas.rows.append(ft.DataRow(
@@ -665,10 +540,6 @@ def main(page: ft.Page):
         update_contas_list()
         page.update()
 
-    
-    
-    
-
     input_cliente=ft.TextField(label="Nome do cliente/mesa")
     def novo_cliente(e):
         cliente_row.content=ft.Row([
@@ -686,9 +557,7 @@ def main(page: ft.Page):
                 mudar()
                 update_contas_list()
             else:
-                cliente_row.content=ft.Text("O cliente nao tem nenhum pedido",color=ft.Colors.RED_400,weight="bold")
-
-            
+                cliente_row.content=ft.Text("O cliente nao tem nenhum pedido",color=ft.Colors.RED_400,weight="bold")        
         except:
             cliente_row.content=ft.Text("Crie um cliente primeiro",color=ft.Colors.RED_400,weight="bold")
         page.update()
@@ -823,8 +692,6 @@ def main(page: ft.Page):
 
         ])
 
-    
-    
     for i in todosUsers():
         user = f"{i.username}={i.nome}"
         perfiles.controls.append(
@@ -849,58 +716,11 @@ def main(page: ft.Page):
                         expand=1,
                         alignment=ft.MainAxisAlignment.CENTER
                     ),bgcolor='#fefce8',expand=True)
-        
-    
-    
-
-    #CriarTabelas()
-    def fechar_relatorio(e):
-        # Tente recuperar o relatório do dia especificado
-        relatorio = db.query(RelatorioVenda).filter_by(nome=f"relatorio{day}").first()
-
-        if relatorio:
-            # Recupera o estoque atual de todos os produtos
-            estoque_atual = db.query(Produto).all()
-            estoque_dicionario = {produto.titulo: produto.estoque for produto in estoque_atual}
-
-            # Certifique-se de que `entrada` seja uma lista de dicionários
-            if isinstance(relatorio.entrada, str):
-                try:
-                    entrada = json.loads(relatorio.entrada)
-                except json.JSONDecodeError:
-                    print("Erro ao decodificar a entrada do relatório.")
-                    return
-            else:
-                entrada = relatorio.entrada  # Caso já seja uma lista
-
-            # Inicialize a lista de saídas
-            saida = []
-
-            for produto in entrada:
-                nome = produto["nome"]
-                estoque_inicial = produto["estoque"]
-                estoque_final = estoque_dicionario.get(nome, 0)
-                quantidade_saida = calcular_quantidade_saida(estoque_inicial, estoque_final)
-                if quantidade_saida > 0:
-                    saida.append({
-                        "nome": nome,
-                        "quantidade_saida": quantidade_saida
-                    })
-
-            # Atualize o relatório e salve no banco de dados
-            relatorio.saida = json.dumps(saida)  # Converter para JSON antes de armazenar
-            db.commit()
-
-            print("Relatório fechado com sucesso. Saídas registradas.")
-        else:
-            print("Relatório não encontrado para o dia especificado.")
-
 
     def novo_relatorio(e):
         relatorio_alert.open = False
         page.update()
         rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{day}").count()
-        
         if rlt > 0:
             page.open(dialogo)
         else:
@@ -911,92 +731,20 @@ def main(page: ft.Page):
                 entrada.append({
                     "nome": i.titulo,
                     "estoque": i.estoque
-                })
-            
+                })        
             addRelatorio(day, entrada)
             
     def fecha(e):
         dialogo.open=False
         page.update()
-    def relatorio_pdf(e):
-        id=e.control.key
-        relatorio=getRelatorioUnicoByID(id)
-        total_view=totalVendaMoneyRelatorio(relatorio.data)
-        vendas_view=len(relatorio.vendas)
-        
-        vendas=[]
-        for i in relatorio.vendas:
-            
-            total=totalVendaMoney(i.id)
-            # print(total)
-            total_tipo=totalVendaProdutos(i.id)
-            vendas.append({
-                'id':i.id,
-                'hora':i.hora,
-                'produto_total':total_tipo,
-                'quantidade':f"{i.total_item}",
-                'total':f"{total}",
-                'cliente':f"{i.cliente}",
-                'caixa':f"{i.funcionario}",
-                'metodo':i.metodo,
-                'produtos':i.produtos
-            })
-        relatorio_dict={
-            'nome':relatorio.nome,
-            'data':relatorio.data,
-            'total_vendas':vendas_view,
-            'total':total_view,
-            'vendas':vendas,
-            'entrada':relatorio.entrada,
-            'saida':relatorio.saida,
-        }
-        if  relatorio.data ==day:
-            print("relatorio de hoje")
-            getHistoricoEstoque(getRelatorioUnico(day).id)
-            fechar_relatorio(e)
-        res=gerar_relatorio_pdf(relatorio_dict,getRelatorioUnico(day).id)
-        if res:
-            page.open(ft.AlertDialog(title=ft.Text("Relatorio"),content=ft.Text("O pdf foi gerado com sucesso")))
-        else:
-            page.open(ft.AlertDialog(title=ft.Text("Relatorio"),content=ft.Text("O pdf sera quardado\n nos documentos/jp"),
-                                     actions=[ft.ElevatedButton("Imprimir PDF",on_click=relatorio_pdf,key=id)]))
-        
-    lista=ft.Column()
-    dal=ft.AlertDialog(title=ft.Text("Produtos Da Venda:"),content=ft.Container(content=lista))
-    def verMaisProdutos(e):
-        lista.controls.clear()
-        venda=db.query(ProdutoVenda).filter_by(id=e.control.key).first()
-
-        for p in venda.produtos:
-            
-            #print(p)
-            lista.controls.append(
-                ft.Row(
-                    controls=[
-                        ft.Text(f"Nome: "),ft.Text(p['nome'],weight="bold"),
-                        ft.Text(f"Preco: "),ft.Text(f"{p['preco']}0 MT"),
-                        ft.Text(f"Quantidade: "),ft.Text(p['quantidade'],weight="bold"),
-                        ft.Text(f"Total: "),ft.Text(f"{p['total']}0 MT",weight="bold")
-                    ]
-                )
-            )
-        page.open(dal)
+    
     def close_modal(e):
         page.close(relatorio_alert)
     relatorio_alert=ft.AlertDialog(title=ft.Text("Sem Relatorio"),content=ft.Text("Nao tem um Relatorio diario para Hoje! Voce deseja criar?"),actions=[
         ft.TextButton('Cancelar',on_click=close_modal),
         ft.ElevatedButton("Criar Relatorio",on_click=novo_relatorio)
     ])
-    def print_fatura_pdf(e):
-        id=e.control.key
-        venda =getOneSale(id)
-        def to_dict(obj):
-            return {column.name: getattr(obj, column.name) for column in obj.__table__.columns}
-
-        # Exemplo de uso
-        produto_venda_dict = to_dict(venda)  # produto_venda é o objeto do modelo
-        gerar_pdf(produto_venda_dict)
-
+    
     def ch(e):
         global ultima_venda,total_valor
         ultima_venda['metodo']=e.control.value
@@ -1006,71 +754,12 @@ def main(page: ft.Page):
         else:
             valor_pagar.disabled=False
 
-
-    # ft.dropdown.Option("Paga Facil"),
-    #                          ft.dropdown.Option("Ponto 24"),
-    #                          ft.dropdown.Option("POS BIM"),
-    #                          ft.dropdown.Option("POS BCI"),
-    #                          ft.dropdown.Option("POS ABSA"),
-    #                          ft.dropdown.Option("POS MOZA BANCO"),
-    #                          ft.dropdown.Option("POS StanderBank"),
-    #                          ft.dropdown.Option("M-Cash")
-
     pagamento=ft.Dropdown(label="metodo de pagamento",
                     options=[ft.dropdown.Option("Cash"),
                              ft.dropdown.Option("MPesa"),
                              ft.dropdown.Option("POS BCI"),
                              ft.dropdown.Option("E-mola")
                              ],on_change=ch)
-
-    def see_more(e):
-        vendas.controls.clear()
-        global total_view
-        global vendas_view
-        global data_view
-
-        rel=getRelatorioUnicoByID(e.control.bgcolor)
-        total_view=totalVendaMoneyRelatorio(rel.data)
-        vendas_view=len(rel.vendas)
-        data_view=rel.data
-        relatorios.controls.clear()
-        relatorios.controls.append(ft.Text(f"Data: {data_view}"))
-        relatorios.controls.append(ft.Text(f"Vendas: {vendas_view}"))
-        relatorios.controls.append(ft.Text(f"Total: {total_view} MT"))
-        relatorios.controls.append(vendas)
-        for i in rel.vendas:
-            total=totalVendaMoney(i.id)
-            total_tipo=totalVendaProdutos(i.id)
-            vendas.controls.append(ft.Card(content=ft.Container(padding=8,
-                content=ft.Column(controls=[
-                    ft.Row(controls=[
-                    ft.Text(f"Produtos: {total_tipo}"),
-                    ft.Text(f"Qtd: {i.total_item}"),
-                    ft.IconButton(icon=ft.Icons.VISIBILITY,key=f"{i.id}",on_click=verMaisProdutos),
-                    ft.Row(controls=[
-                        ft.Text(f"Total:"),
-                        ft.Text(f" {total}0 MT",size=18,weight="bold")
-                    ]),
-                    ft.Row(controls=[
-                        ft.Text(f"Cliente/Mesa: "),
-                        ft.Text(f"{i.cliente}",size=15,weight="bold")
-                    ]),
-                    ft.Row(controls=[
-                        ft.Text(f"Caixa: "),
-                        ft.Text(f"{i.funcionario}",size=15,weight="bold")
-                    ]),
-                    
-                    ft.IconButton(icon=ft.Icons.PRINT,key=f"{i.id}",on_click=print_fatura_pdf)
-
-                ]),
-     
-               
-                ])
-            )))
-
-
-        page.update()
-
 
     dialogo=ft.AlertDialog(title=ft.Text("PDV LITE"),
                            content=ft.Text("So pode criar um Relatorios por dia"),
@@ -1084,10 +773,7 @@ def main(page: ft.Page):
     def close_show(e):
         page.close(resumo_venda)
     pagament=ft.AlertDialog(title=ft.Text("Pagamento"),content=ft.Container(width=300,height=340,content=ft.Column([
-        pagamento,
-                    valor_pagar,
-                    trocoView,
-                    keyboard2
+        pagamento,valor_pagar,trocoView,keyboard2
     ])))
     def guardar(e=''):
         pagamento.value="Cash"
@@ -1099,24 +785,18 @@ def main(page: ft.Page):
         print_receipt(ultima_venda)
         page.close(resumo_venda)
 
-    
     resumo_venda=ft.AlertDialog(title=ft.Text('Resumo da Venda'),actions=[
         ft.TextButton('Cancelar',on_click=close_show),
         ft.ElevatedButton("imprimir",bgcolor=ft.Colors.RED_500,color='white',on_click=imprimir_fatuta)
     ])
     
-
     def show_resumo():
         dado=formatar_dados(ultima_venda)
         resumo_venda.content=ft.Text(dado)
         valor_pagar.value=''
         pagamento.value="Cash"
-
         page.open(resumo_venda)
         
-        
-
-
     def limpar(e=''):
         global carrinho
         global quantidade_item
@@ -1138,14 +818,7 @@ def main(page: ft.Page):
             ]))
         lista_vendas.controls.clear()
         page.update()
-    help_dialog=ft.AlertDialog(title=ft.Text("Ajuda"),content=ft.Container(padding=10,width=300,content=ft.Text(
-        "O aplicativo PDV LITE e um sistema que facilitas as vendas das lojas, restaurantes e farmacias, o aplicativo tem uma documentacao na web e uma playlist de aulas gratis, clique nas seguintes accoes e aproveite , o novo futura de mocambique"
-    )),actions=[
-        ft.ElevatedButton("Documentacao",bgcolor="blue"),
-        ft.ElevatedButton("YouTube",bgcolor="red")
-    ])
-
-
+S
     ####################################################### NAVBAR #############################################################
     if(CheckIsLoged()==True):
         pass
@@ -1177,7 +850,6 @@ def main(page: ft.Page):
         ])
         page.open(dl_m)
     
-
     def adicionar_Carinho_m(e):
         global quantidade_item
         id = e.control.key
@@ -1264,8 +936,7 @@ def main(page: ft.Page):
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                 ))
-            ))
-
+            ))S
         page.update()
 
     def delete_item(e):
@@ -1574,59 +1245,6 @@ def main(page: ft.Page):
                 ))
 
             page.update()
-
-    def submit2(e):
-        produtos.rows.clear()
-        page.update()
-        if e.control.value=="Todos os Produtos":
-            for i in verProdutos():
-    
-                produto_id = i.id  # Captura o ID do produto atual
-                produtos.rows.append(
-                    ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Row([ft.Image(f'{imagens}/{i.image}', width=80,height=40),ft.Text(i.titulo, weight="bold", size=14)])),
-                        ft.DataCell(ft.Text(f'{i.preco} MZN', weight="bold", size=13, color=ft.Colors.RED_700)),
-                        ft.DataCell(ft.Text(i.barcode)),
-                        ft.DataCell(ft.Text(i.categoria)),
-                        ft.DataCell(ft.Text(i.estoque,size=18,weight='bold')),
-            
-                        ft.DataCell(ft.PopupMenuButton(
-                                    items=[
-                                        ft.PopupMenuItem(text="Editar", on_click=lambda e, produto_id=produto_id: atualizar(produto_id)),
-                                        ft.PopupMenuItem(text="Fornecer Produto",  on_click=lambda e, produto_id=produto_id: open_estoque(produto_id)),
-                                        ft.PopupMenuItem(text="Deletar", on_click=lambda e, produto_id=produto_id: eliminarProoduto(produto_id)),
-                                    ]
-                                ),),
-                    ],
-                ),
-                )
-               
-        else:
-            produtos.rows.clear()
-            for i in pesquisaProduto(e.control.value):
-                
-                produto_id = i.id  # Captura o ID do produto atual
-                produtos.rows.append(
-                    ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Row([ft.Image(f'{imagens}/{i.image}', width=80,height=40),ft.Text(i.titulo, weight="bold", size=14)])),
-                        ft.DataCell(ft.Text(f'{i.preco} MZN', weight="bold", size=13, color=ft.Colors.RED_700)),
-                        ft.DataCell(ft.Text(i.barcode)),
-                        ft.DataCell(ft.Text(i.categoria)),
-                        ft.DataCell(ft.Text(i.estoque,size=18,weight='bold')),
-                        
-                        ft.DataCell(ft.PopupMenuButton(
-                                    items=[
-                                        ft.PopupMenuItem(text="Editar", on_click=lambda e, produto_id=produto_id: atualizar(produto_id)),
-                                        ft.PopupMenuItem(text="Fornecer Produto",  on_click=lambda e, produto_id=produto_id: open_estoque(produto_id)),
-                                        ft.PopupMenuItem(text="Deletar", on_click=lambda e, produto_id=produto_id: eliminarProoduto(produto_id)),
-                                    ]
-                                ),),
-                    ],
-                ),
-                )
-        page.update()
             
     def submit(e):
         items_menu.controls.clear()
@@ -1679,158 +1297,6 @@ def main(page: ft.Page):
                                     ])
                                     ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
         page.update()
-    quant_estoque=ft.TextField(label="Digite a quantidade")
-
-    def fornecer(e):
-        global selected_item_id
-        resposta=incrementarStoque(selected_item_id,int(quant_estoque.value),getRelatorioUnico(day).id)
-        if "Estoque atualizado" in resposta:
-            update_produtos()
-            page.open(ft.AlertDialog(title=ft.Text("PDV Lite"),content=ft.Row([ft.Icon(ft.Icons.INFO,color=ft.Colors.GREEN_500),ft.Text(resposta,weight='bold')])))
-        else:
-            page.open(ft.AlertDialog(title=ft.Text("PDV Lite"),content=ft.Row([ft.Icon(ft.Icons.INFO,color='red'),ft.Text(resposta,weight='bold')])))
-
-        
-            
-    fornecer_dialog=ft.AlertDialog(title=ft.Text("Fornecer Produto"),
-                                    content=quant_estoque,
-                                    actions=[
-                                        ft.TextButton("Cancelar",on_click=lambda e:page.close(fornecer_dialog) ),
-                                        ft.ElevatedButton("Guardar",bgcolor=ft.Colors.ORANGE_600,color=ft.Colors.WHITE,on_click=fornecer)
-                                    ])
-
-    
-
-    def atualizar(id):
-        if(get_logged_user()['cargo'])=='admin':
-            produto=acharUmProduto(id) 
-            global dlg_edit
-            e_nome_input.value=produto.titulo
-            e_barcode_input.value=produto.barcode
-            e_preco_input.value=produto.preco
-            e_estoque.value=produto.estoque
-            input_categoria.value=produto.categoria
-            dlg_edit=ft.AlertDialog(
-            title=ft.Text("Atualizar o Produto", size=24),
-            content=ft.Column([
-                e_nome_input,
-                e_barcode_input,
-                e_preco_input,
-                e_estoque,
-                input_categoria,
-                status_text,
-                select_button
-            ], scroll=True),  # Permite rolagem se o conteúdo for maior que o espaço disponível
-            actions=[
-                ft.TextButton("Cancelar", on_click=lambda e: page.close(dlg_edit)),
-                ft.ElevatedButton("Atualizar", on_click=update_produto,key=id)
-            ])
-
-            page.open(dlg_edit)
-        else:
-            page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
-                ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_600),
-                ft.Text("Nao tens permicao para \n editar produtos",weight="bold")
-            ])))
-        
-
-    def eliminarProoduto(id):
-        deletarProduto(id)
-        update_menu()
-        update_produtos()
-    def open_estoque(id):
-        global selected_item_id
-        selected_item_id=id
-        page.open(fornecer_dialog)
-    def update_produtos():
-        page.update()
-        produtos.rows.clear()
-        for i in verProdutos():
-            
-            produto_id = i.id  # Captura o ID do produto atual
-            produtos.rows.append(
-                    ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Row([ft.Image(f'{imagens}/{i.image}',width=80,height=40),ft.Text(i.titulo, weight="bold", size=14)])),
-                        ft.DataCell(ft.Text(f'{i.preco} MZN', weight="bold", size=13, color=ft.Colors.RED_700)),
-                        ft.DataCell(ft.Text(i.barcode)),
-                        ft.DataCell(ft.Text(i.categoria)),
-                        ft.DataCell(ft.Text(i.estoque,size=18,weight='bold')),
-                        
-                        ft.DataCell(ft.PopupMenuButton(
-                                    items=[
-                                        ft.PopupMenuItem(text="Editar", on_click=lambda e, produto_id=produto_id: atualizar(produto_id)),
-                                        ft.PopupMenuItem(text="Fornecer Produto",  on_click=lambda e, produto_id=produto_id: open_estoque(produto_id)),
-                                        ft.PopupMenuItem(text="Deletar", on_click=lambda e, produto_id=produto_id: eliminarProoduto(produto_id)),
-
-                                    ]
-                                ),),
-                    ],
-                ),
-                )
-        
-        page.update()
-
-    lista_relatorio=ft.ListView(width=200,height=700)  
-    alert_delete=ft.AlertDialog(title=ft.Text("Aviso"))  
-    def deletar_relatorio(e):
-        id=e.control.key
-        relatorio=db.query(RelatorioVenda).filter_by(id=id).first()
-        db.delete(relatorio)
-        db.commit()
-        relatorio_update()
-        page.close(alert_delete)
-
-    def dialog_delete_relatorio(e):
-        if(get_logged_user()['cargo'])=='admin':
-            alert_delete.content=ft.Row([ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_500),ft.Text("Confirma a exclussao do \n Relatorio?")])
-            alert_delete.actions=[
-                ft.ElevatedButton("DELETAR",bgcolor="red",color="white",on_click=deletar_relatorio,key=e.control.key)
-            ]
-            page.open(alert_delete)
-        else:
-            page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
-                ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_600),
-                ft.Text("Nao tens permicao para \n deletar um relatorio",weight="bold")
-            ])))
-    def relatorio_update():
-        lista_relatorio.controls.clear()
-        page.update()
-        for i in getRelatorios():
-            total=totalVendaMoneyRelatorio(i.data)
-            lista_relatorio.controls.append(
-                ft.Container(
-                    content=ft.Card(
-                ft.Container(padding=10,        
-                content=ft.Column(  
-                [
-                    ft.Row(
-                    [
-                    ft.Text(i.data,size=18,weight="bold"),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER
-                ),
-                ft.Text(f"Total: {total} MT",weight="bold",size=17),
-                    
-                ft.Row(controls=[
-            ft.IconButton(ft.Icons.MORE,on_click=see_more,bgcolor=f"{i.id}"),
-             ft.IconButton(ft.Icons.PRINT,on_click=relatorio_pdf,key=f"{i.id}"),
-            ft.IconButton(ft.Icons.DELETE,on_click=dialog_delete_relatorio,key=i.id)
-                ],
-                alignment=ft.MainAxisAlignment.CENTER
-                ),
-                
-                ],
-                alignment=ft.MainAxisAlignment.CENTER
-            ) )
-            ))
-                )
-            body.content = relatoriosBody
-            
-            page.update()
-        page.update()
-
-    
     lista_vendas=ft.ListView(height=380)
 
     # items_menu=ft.GridView(max_extent=200,spacing=10,height=600,child_aspect_ratio=0.8)
@@ -1840,277 +1306,14 @@ def main(page: ft.Page):
         options=[ft.dropdown.Option(categoria.nome) for categoria in categoria_lista],
         on_change=submit
     )
-    input_categoria = ft.Dropdown(
-        label="Categoria",
-        width=400,
-        options=[ft.dropdown.Option(categoria.nome) for categoria in categoria_lista],
-        on_change=submit
-    )
     search=ft.TextField(label="Procurar Produto",border_radius=12,on_change=submit)
-
-    search_categoria2 = ft.Dropdown(
-        label="Categoria",
-        options=[ft.dropdown.Option(categoria.nome) for categoria in categoria_lista],
-        on_change=submit2
-    )
-    search2=ft.TextField(label="Procurar Produto",border_radius=12,on_change=submit2)
-    produtos_table_itens=ft.Container(height=page.window.height-20,padding=10)
-    produtos=ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Nome do produto")),
-                ft.DataColumn(ft.Text("Preco")),
-                ft.DataColumn(ft.Text("Codigo de Barra")),
-                ft.DataColumn(ft.Text("Categoria")),
-                ft.DataColumn(ft.Text("Estoque Atual"), numeric=True),
-                ft.DataColumn(ft.Text("accoes")),
-            ])
+    
     update_menu()
     
-    relatoriosBody=ft.Container(scale=0.9,
-        content=ft.Column(controls=[
-            ft.Row(controls=[
-                ft.Text("Relatorios Diarios",weight="bold"),
-                ft.ElevatedButton("Novo Relatorio",on_click=novo_relatorio)
-            ]),
-            ft.Row(
-                controls=[
-                    lista_relatorio,
-                    ft.Container(expand=True,height=altura,padding=10,content=ft.Column(
-                    controls=[
-                        ft.Text("Detalhes Do Relatorio",weight="bold",size=30),
-                        relatorios
-                    ]
-                    ))
-
-                ]
-            )
-        ])
-    )
-    def imprimir_todos(e):
-        produtos = db.query(Produto).order_by(asc(Produto.titulo)).all()
-        gerar_pdf_produtos(produtos)
-        
-    produtoBody=ft.Container(
-       content=ft.Column([
-           ft.Container(padding=10,border_radius=10,bgcolor="white",content=ft.Row(controls=[
-                            ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.RED_500),
-                            search_categoria2,
-                            search2,
-                            ft.CupertinoButton(text="Imprimir Tudo",bgcolor=ft.Colors.ORANGE_600,on_click=imprimir_todos)
-                        ],alignment=ft.MainAxisAlignment.SPACE_BETWEEN)),
-                        produtos_table_itens
-       ])
-    )
     mesas = [ft.dropdown.Option(f"Mesa {i}") for i in range(1, 31)]
     mesas.insert(0, ft.dropdown.Option("Sem mesa"))
     mesa=ft.Dropdown(label="Mesa",height=40,
                      options=mesas)
-    def addUser(e):
-        page.open(userDialog)
-        
-
-    name=ft.TextField(label='Nome do funcionario')
-    username_input=ft.TextField(label='username')
-    senha=ft.TextField(label='senha')
-
-        
-    def confirm_change_password(e):
-        if(userLoged().senha==cng_old.value):
-            cng_old.label="Digite a senha anterior"
-            cng_old.border_color=None
-            page.update()
-            changePassword(userLoged(),cng_new.value)
-            cng.open=False
-            page.update()
-        else:
-            cng_old.label="por favor tente novamente"
-            cng_old.border_color="red"
-            page.update()
-    cng_old=ft.TextField(label='Digite a senha anterior')
-    cng_new=ft.TextField(label='Digite a nova senha ')
-    cng=ft.AlertDialog(title=ft.Text('Mudar a senha do usuario'), content=ft.Column(controls=[
-    cng_old,cng_new,ft.FilledButton("mudar a senha",on_click=confirm_change_password)
-    ]))
-    def chang_password(e):
-        page.open(cng)
-    def cadastrar(e):
-        if name.value != '' and senha.value !="":
-            CadastrarUsuario(name.value,'simples',u=username_input.value,s_=senha.value)
-            name.value=""
-            senha.value=""
-            username_input.value=""
-            funcionarios=[]
-            for i in getFuncionarios():
-                funcionarios.append(ft.DataRow(
-                        cells=[
-                            ft.DataCell(ft.Text(i.nome)),
-                            ft.DataCell(ft.Text(i.username)),
-                            ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE,key=i.id,on_click=deletar)),
-                        ],
-                    ),)
-            tabela.rows=funcionarios
-            page.update()
-
-
-    userDialog=ft.AlertDialog(title=ft.Text("Adicionar Usuario"),
-                              content=ft.Column(height=250,controls=[
-                                  name,
-                                  username_input,
-                                  senha,
-                                  ft.ElevatedButton("Cadastar Funcionario",on_click=cadastrar)
-                              ]))
-    
-
-    def deletar(e):
-        if(int(e.control.key)==1):
-            def f(e):
-                page.close(d)
-            d=ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Text("O Admin Nao pode ser eliminado"),actions=[ft.TextButton('fechar',on_click=f)])
-            page.open(d)
-        else:
-            excluir_funcionario(e.control.key)
-            funcionarios=[]
-            for i in getFuncionarios():
-                funcionarios.append(ft.DataRow(
-                        cells=[
-                            ft.DataCell(ft.Text(i.nome)),
-                            ft.DataCell(ft.Text(i.username)),
-                            ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE,key=i.id,on_click=deletar)),
-                        ],
-                    ),)
-            tabela.rows=funcionarios
-            page.update()
-            
-
-    funcionarios=[]
-    tabela=ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Nome")),
-                ft.DataColumn(ft.Text("Nome do usuario")),
-                ft.DataColumn(ft.Text("accoes"), numeric=True),
-            ],
-            )
-    if CheckIsLoged():
-        
-        for i in getFuncionarios():
-            funcionarios.append(ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(i.nome)),
-                        ft.DataCell(ft.Text(i.username)),
-                        ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE,key=i.id,on_click=deletar)),
-                    ],
-                ),)
-            tabela.rows=funcionarios
-        ft.Text(get_logged_user()['username'],weight="bold")
-        
-    nome_input = ft.TextField(label="Nome", width=400)
-    preco_input = ft.TextField(label="Preço", width=400)
-    barcode=ft.TextField(label="barcode Scanneado")
-    select_button = ft.ElevatedButton(text="Selecionar Foto", on_click=lambda _: file_picker.pick_files(allow_multiple=False))
-    estoque = ft.TextField(label="estoque", multiline=True, width=400,)
-    
-    e_nome_input = ft.TextField(label="Nome", width=400)
-    e_preco_input = ft.TextField(label="Preço", width=400)
-    e_barcode_input=ft.TextField(label="Barcode Scanneado")
-    e_estoque = ft.TextField(label="Estoque", multiline=True, width=400)
-
-    
-    def cancel_dlg(event):
-        dlg.open=False
-        page.update()
-    def update_produto(e):
-        global dlg_edit,selected_file_path
-        destination_dir = os.path.join(os.getenv("LOCALAPPDATA"), ".jpInvest/img")
-
-        if  not selected_file_path:
-            pass
-        else:
-        
-            if not os.path.exists(destination_dir):
-                os.makedirs(destination_dir)
-            filename = os.path.basename(selected_file_path)
-            destination_path = os.path.join(destination_dir, filename)
-            try:
-                shutil.copy(selected_file_path, destination_path)
-                status_text.value = "Foto copiada com sucesso!"
-            except Exception as ex:
-                status_text.value = f"Erro ao copiar a foto: {ex}"
-            page.update()
-            
-
-    
-        pdt=acharUmProduto(e.control.key)
-        pdt.titulo=e_nome_input.value
-        pdt.preco=e_preco_input.value
-        pdt.estoque=e_estoque.value
-        pdt.categoria=input_categoria.value
-
-        if e_barcode_input.value !="" and e_barcode_input.value!=None:
-            pdt.barcode=e_barcode_input.value
-        if  not selected_file_path:
-            pass
-        else:
-            pdt.image=filename
-        selected_file_path=None
-        AtualisarProduto(int(e.control.key),pdt)
-        dlg_edit.open=False
-        page.update()
-        update_menu()
-        update_produtos()
-        page.update()
-        
-    def add(e):
-        global selected_file_path
-        filename=None
-        destination_dir = os.path.join(os.getenv("LOCALAPPDATA"), ".jpInvest/img")
-        if not os.path.exists(destination_dir):
-            os.makedirs(destination_dir)
-        if selected_file_path:
-            filename = os.path.basename(selected_file_path)
-            destination_path = os.path.join(destination_dir, filename)
-            try:
-                shutil.copy(selected_file_path, destination_path)
-                status_text.value = "Foto copiada com sucesso!"
-            except Exception as ex:
-                status_text.value = f"Erro ao copiar a foto: {ex}"
-        page.update()
-        CadastrarProduto(nome_input.value,barcode.value, categoria.value,preco_input.value, estoque.value, filename,getRelatorioUnico(day).id)
-        dlg.open=False
-        page.update()
-        update_menu()
-        update_produtos()
-        selected_file_path=None
-        
-
-    dlg = ft.AlertDialog(
-        title=ft.Text("Cadastrar Novo Produto", size=24),
-        content=ft.Column([
-            nome_input,
-            barcode,
-            preco_input,
-            categoria,
-            estoque,
-            select_button,
-            status_text
-            
-        ], scroll=True),  # Permite rolagem se o conteúdo for maior que o espaço disponível
-        actions=[
-            ft.TextButton("Cancelar", on_click=cancel_dlg),
-            ft.TextButton("Cadastrar", on_click=add),  # Fechar o diálogo sem ação adicional
-        ],
-
-    )
-    # Diálogo de cadastro
-    
-
-    def add_item(event):
-        if(get_logged_user()['cargo'])=='admin':
-            page.open(dlg)
-        else:
-            page.open(ft.AlertDialog(title=ft.Text("Nao Autorizado"),content=ft.Row([
-                ft.Icon(ft.Icons.INFO,color='red'),
-                ft.Text("Nao pode adicionar\n produtos")
-            ])))
     
     # Criando o NavigationRail
     nav_rail = ft.NavigationRail(
@@ -2170,18 +1373,7 @@ def main(page: ft.Page):
             ),
 
     ],on_change=chage_nav2)
-    def close_about(e):
-        about.open=False
-        page.update()
-    about=ft.AlertDialog(
-        title=ft.Text("Sobre PDV Lite v1.0 - Lichinga"),
-        content=ft.Container(
-            width=300,
-            content=ft.Text("""O PDV Lite é um sistema de ponto de venda offline desenvolvido pela equipe BlueSpark da empresa Electro Gulamo. Este sistema tem como objetivo auxiliar a gestão de vendas em lojas e farmácias.
-                                                                        Imagine um cenário onde todos os cálculos são realizados automaticamente e um relatório diário é gerado sem a necessidade de utilizar o Excel. O PDV Lite foi criado para oferecer muito mais, proporcionando uma solução completa e eficiente para a gestão de vendas.
-        """,no_wrap=False)),actions=[
-            ft.TextButton("Intendi!",on_click=close_about)
-        ])
+    
     # Conteúdo inicial do corpo da página
     if CheckIsLoged():
         body = ft.Container(content=ft.Container(
@@ -2231,8 +1423,7 @@ def main(page: ft.Page):
              
                     ],)])))
     else:
-        body = ft.Container(content=ft.Container())
-
+        body S= ft.Container(content=ft.Container())
     #bottom_nav,nav_rail
     body_config=ft.ResponsiveRow(
                 [
@@ -2243,20 +1434,10 @@ def main(page: ft.Page):
                 ],
                 expand=True,  
             )
-    
-
     page.on_keyboard_event = on_key
-    
     # Adicionando o NavigationRail ao layout da página
     if(CheckIsLoged()):
-        page.floating_action_button=ft.FloatingActionButton(
-                        icon=ft.Icons.ADD, on_click=add_item
-                    )
-        page.add(
-          body_config  
-        ) 
-        
-        
+        page.add(body_config) 
     else:
         page.add(login_page)
     while True:
