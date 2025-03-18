@@ -6,23 +6,24 @@ from controler import *
 from models.modelos import ProdutoVenda
 from datetime import datetime
 from pdv2pdf import*
-import logging
 from time import sleep
 from contasToVenda import Venda
 from controler import ContaInfoToVenda
 from sqlalchemy import asc
 from local import *
+import win32print
 
-from pages.settings import setting
-from pages.products import produtoBody
-from pages.estoque import estoquePage
-from pages.tables import tablePage
-from pages.money import moneyPage
-from pages.relatorio import relatorioPage
+# Corrigir importações para usar apenas as classes
+from pages.settings import SettingsPage
+from pages.products import ProductsPage
+from pages.estoque import EstoquePage
+from pages.tables import TablesPage
+from pages.money import MoneyPage
+from pages.relatorio import RelatorioPage
+from pages.home import HomePage
 
 os.environ["FLET_WS_MAX_MSG_SIZE"] = "8000000"
 
-logging.basicConfig(level=logging.INFO)
 selected_file_path = None
 banco=isDataBase()
 current_date = datetime.now()
@@ -46,8 +47,81 @@ selected_item_id=None
 dlg_edit = ft.AlertDialog(
         title=ft.Text("Atualizar o Produto", size=24))
 settingBody=ft.Container(content=ft.Row([]))
-horas=ft.Container()
-    
+horas=ft.Container(content=ft.Row([
+    ft.Text("Hora:", size=15),
+    ft.Text(current_date.strftime("%H:%M:%S"), size=15)
+]))
+
+def CheckIsLoged():
+    return is_logged()
+
+def initialize_app(page: ft.Page, body_config: ft.Container, login_page: ft.Container):
+    # Sistema de verificação de requisitos
+    requirements_container = ft.Container(
+        width=400,
+        height=300,
+        bgcolor="white",
+        border_radius=10,
+        padding=20,
+        content=ft.Column(
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Text("Verificando requisitos do sistema", size=20, weight="bold", color=ft.Colors.INDIGO_400),
+                ft.ProgressBar(width=300, color=ft.Colors.INDIGO_400),
+                ft.Text("", size=16, color=ft.Colors.GREY_700),  # Status text
+                ft.ProgressRing(color=ft.Colors.INDIGO_400, width=20, height=20, stroke_width=2)
+            ]
+        )
+    )
+
+    loading_screen = ft.Container(
+        expand=True,
+        bgcolor="#F0F8FF",
+        alignment=ft.alignment.center,
+        content=requirements_container
+    )
+
+    page.clean()
+    page.add(loading_screen)
+    page.update()
+
+    status_text = requirements_container.content.controls[2]
+    progress_bar = requirements_container.content.controls[1]
+    loading_ring = requirements_container.content.controls[3]
+
+    # Check database
+    status_text.value = "Verificando banco de dados..."
+    progress_bar.value = 0.3
+    page.update()
+    sleep(1)
+
+    # Check storage
+    status_text.value = "Verificando armazenamento..."
+    progress_bar.value = 0.6
+    page.update()
+    sleep(1)
+
+    # Check dependencies
+    status_text.value = "Verificando dependências..."
+    progress_bar.value = 0.9
+    page.update()
+    sleep(1)
+
+    # All checks passed
+    status_text.value = "Sistema pronto!"
+    progress_bar.value = 1
+    loading_ring.visible = False
+    page.update()
+    sleep(0.5)
+
+    # Clear page and proceed to login
+    page.clean()
+    if(is_logged()):
+        page.add(body_config)
+    else:
+        page.add(login_page)
+    page.update()
+
 def main(page: ft.Page):
     page.title="PDV Niassa"
     page.title="Ponto de venda - JP Invest"
@@ -56,9 +130,141 @@ def main(page: ft.Page):
     page.window.full_screen=True
     altura=page.window.height+150
     global hora,banco,selected_item_id
-    def CheckIsLoged():
-        return is_logged()
-    
+
+    def chage_nav2(e):
+        selected_index=e.control.selected_index
+        nav_rail.selected_index=None
+
+        if selected_index == 0:
+            if(get_logged_user()['cargo'])=='admin':
+                body.content = SettingsPage(pagex=page)
+                page.update()
+            else:
+                page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
+                    ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_600),
+                    ft.Text("Nao tens Permicao para acessar nas difinicoes")
+                ])))
+            page.update()
+        
+        elif selected_index == 1:
+            page.clean()
+            page.floating_action_button=None
+            clear_logout()
+            page.add(login_page)
+        
+    def chage_nav(e):
+        selected_index=e.control.selected_index
+        bottom_nav.selected_index=None
+
+        if selected_index == 0:
+            body.content = ft.Container(
+                bgcolor="#F0F8FF",  # Light blue-white background
+                content=ft.Column(
+                    [
+                        ft.Row(
+                            controls=[
+                                ft.Container(
+                                    expand=True,
+                                    height=altura,
+                                    padding=14,
+                                    content=ft.Column(controls=[
+                                        ft.Container(
+                                            padding=10,
+                                            border_radius=10,
+                                            bgcolor="white",
+                                            content=ft.Row(
+                                                controls=[
+                                                    ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.INDIGO_400),
+                                                    search_categoria,
+                                                    search
+                                                ],
+                                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                                            )
+                                        ),
+                                        items_menu
+                                    ])
+                                ),
+                                ft.Container(
+                                    width=260,
+                                    padding=10,
+                                    bgcolor=ft.Colors.WHITE,
+                                    content=ft.Column(controls=[
+                                        ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
+                                        ft.Container(
+                                            padding=10,
+                                            margin=10,
+                                            content=ft.Column(controls=[
+                                                ft.Row(controls=[
+                                                    ft.Text("Data:",size=15),
+                                                    ft.Text(day,size=15)
+                                                ]),
+                                                horas,
+                                                ft.Row(controls=[
+                                                    ft.Text("Caixa:",size=15),
+                                                    ft.Text(userLoged().nome,size=15)
+                                                ])
+                                            ])
+                                        ),
+                                        ft.Card(
+                                            content=ft.Container(
+                                                padding=10,
+                                                content=ft.Column([
+                                                    clientes,
+                                                    mesa,
+                                                    ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta())
+                                                ])
+                                            )
+                                        ),
+                                        ft.Stack(
+                                            width=260,
+                                            height=650,
+                                            controls=[
+                                                lista_vendas,
+                                                ft.Card(
+                                                    width=235,
+                                                    bottom=300,
+                                                    content=ft.Container(
+                                                        padding=10,
+                                                        content=ft.Column(controls=[total_text])
+                                                    )
+                                                )
+                                            ]
+                                        )
+                                    ])
+                                )
+                            ]
+                        )
+                    ]
+                )
+            )
+            update_menu()
+            page.update()
+        elif selected_index == 1:
+            # Página de produtos - usando a classe ProductsPage
+            body.content = ProductsPage(page, update_menu)
+            page.update()
+        elif selected_index == 2:
+            # Página de estoque - usando a classe EstoquePage
+            body.content = EstoquePage(page)
+            page.update()
+        elif selected_index == 3:
+            # Página de finanças - usando a classe MoneyPage
+            body.content = MoneyPage(page)
+            page.update()
+        elif selected_index == 4:
+            # Página de mesas - usando a classe TablesPage
+            body.content = TablesPage(page)
+            page.update()
+        elif selected_index == 5:
+            # Página de relatórios - usando a classe RelatorioPage
+            body.content = RelatorioPage(page)
+            page.update()
+        else:
+            page.clean()
+            page.floating_action_button=None
+            clear_logout()
+            page.add(login_page)
+                
     #capturar eventos de scanner
     def on_key(event):
         global codigo_barras 
@@ -87,103 +293,6 @@ def main(page: ft.Page):
             
     global ultima_venda
   
-    def chage_nav2(e):
-        selected_index=e.control.selected_index
-        nav_rail.selected_index=None
-
-        if selected_index == 0:
-            if(get_logged_user()['cargo'])=='admin':
-                settingBody=setting(pagex=page)
-                body.content = settingBody
-            else:
-                page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
-                    ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_600),
-                    ft.Text("Nao tens Permicao para acessar nas difinicoes")
-                ])))
-            page.update()
-        
-        elif selected_index == 1:
-            page.clean()
-            page.floating_action_button=None
-            clear_logout()
-            page.add(login_page)
-
-            
-    def chage_nav(e):
-        selected_index=e.control.selected_index
-        bottom_nav.selected_index=None
-        if selected_index == 0:
-            body.content = ft.Container(
-            bgcolor="#e1e0e0",
-            content=ft.Column(
-                [
-                    ft.Row(
-                        controls=[
-                    
-                    ft.Container(expand=True,height=altura,
-                                padding=14,
-                                content=ft.Column(controls=[
-                        ft.Container(padding=10,border_radius=10,bgcolor="white",content=ft.Row(controls=[
-                            ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.RED_500),
-                            search_categoria,
-                            search
-                        ],alignment=ft.MainAxisAlignment.SPACE_BETWEEN)),
-                        items_menu
-                    ])),
-                    ft.Container(width=260,padding=10,bgcolor=ft.Colors.WHITE,content=ft.Column(controls=[
-                        ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.RED_500),
-                        ft.Container(padding=10,margin=10,content=ft.Column(controls=[
-                            ft.Row(controls=[
-                                    ft.Text("Data:",size=15),
-                                    ft.Text(day,size=15)
-                                ]),
-                            horas,
-                            ft.Row(controls=[
-                                    ft.Text("Caixa:",size=15),
-                                    ft.Text(userLoged().nome,size=15),    
-                                ]),
-                            
-                        ])),
-                        ft.Card(content=ft.Container(padding=10,
-                                                    content=ft.Column([
-                                                        clientes,mesa,ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta()),
-                                                        ]),)),
-                        ft.Stack(width=260,height=650,controls=[
-                        lista_vendas,
-                        ft.Card(width=235,
-                                bottom=300,
-                                content=ft.Container(padding=10,content=ft.Column(controls=[
-                                    total_text
-                                    ])))
-                                    ])
-                                    ]))
-                
-                        ],)]))
-            update_menu()
-            page.update()
-        elif selected_index == 1:
-            #we add product page hire with this event
-            body.content = produtoBody(page,update_menu)
-            page.update()
-        elif selected_index == 2:
-            body.content=estoquePage(page)
-            page.update()
-        elif selected_index == 3:
-            body.content=moneyPage(page)
-            page.update()
-        elif selected_index == 4:
-            body.content=tablePage(page)
-            page.update()
-        elif selected_index==5:
-            body.content = relatorioPage(page)
-            page.update()
-        else:
-            page.clean()
-            page.floating_action_button=None
-            clear_logout()
-            page.add(login_page)
-            
-
     def serialize_user(user):
         global caixa
         caixa=user.nome
@@ -232,7 +341,86 @@ def main(page: ft.Page):
 
             page.controls.clear()
             page.update()
-            page.add(body_config)
+            body.content=ft.Container(
+                bgcolor="#F0F8FF",  # Light blue-white background
+                content=ft.Column([
+                    ft.Row(
+                        controls=[
+                            ft.Container(
+                                expand=True,
+                                height=altura,
+                                padding=14,
+                                content=ft.Column(controls=[
+                                    ft.Container(
+                                        padding=10,
+                                        border_radius=10,
+                                        bgcolor="white",
+                                        content=ft.Row(
+                                            controls=[
+                                                ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.INDIGO_400),
+                                                search_categoria,
+                                                search
+                                            ],
+                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                                        )
+                                    ),
+                                    items_menu
+                                ])
+                            ),
+                            ft.Container(
+                                width=260,
+                                padding=10,
+                                bgcolor=ft.Colors.WHITE,
+                                content=ft.Column(controls=[
+                                    ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
+                                    ft.Container(
+                                        padding=10,
+                                        margin=10,
+                                        content=ft.Column(controls=[
+                                            ft.Row(controls=[
+                                                ft.Text("Data:",size=15),
+                                                ft.Text(day,size=15)
+                                            ]),
+                                            horas,
+                                            ft.Row(controls=[
+                                                ft.Text("Caixa:",size=15),
+                                                ft.Text(userLoged().nome,size=15)
+                                            ])
+                                        ])
+                                    ),
+                                    ft.Card(
+                                        content=ft.Container(
+                                            padding=10,
+                                            content=ft.Column([
+                                                clientes,
+                                                mesa,
+                                                ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta())
+                                            ])
+                                        )
+                                    ),
+                                    ft.Stack(
+                                        width=260,
+                                        height=650,
+                                        controls=[
+                                            lista_vendas,
+                                            ft.Card(
+                                                width=235,
+                                                bottom=300,
+                                                content=ft.Container(
+                                                    padding=10,
+                                                    content=ft.Column(controls=[total_text])
+                                                )
+                                            )
+                                        ]
+                                    )
+                                ])
+                            )
+                        ]
+                    )
+                ])
+            )
+        
+            page.add(body_config) 
     
         else:
             page.open(ft.AlertDialog(title=ft.Text("Senha errada"),content=ft.Row(controls=[
@@ -245,7 +433,7 @@ def main(page: ft.Page):
             
 
     header=ft.Row(
-        [ft.Container(content=ft.Text(info['app'],weight='bold',size=50,color=ft.Colors.RED_500))]
+        [ft.Container(content=ft.Text(info['app'],weight='bold',size=50,color=ft.Colors.INDIGO_400))]
         ,alignment=ft.MainAxisAlignment.CENTER,
         )
     def hovercard(e):
@@ -342,8 +530,8 @@ def main(page: ft.Page):
         recebido=valor_pagar.value
         total = getTotalMoneyCart(carrinho_s)  
         total_valor=total
-        iva = round(total * iva_p)  
-        subtotal = subtotal = round(total - iva, 2)
+        iva = total * 0.16  # 16% do total
+        subtotal = total - iva  # Subtotal é o total menos o IVA
         try:
             if int(recebido)>total:
                 troco=int(recebido)-total
@@ -376,8 +564,8 @@ def main(page: ft.Page):
         ft.ElevatedButton(text="1",on_click=write),
         ft.ElevatedButton(text="2",on_click=write),
         ft.ElevatedButton(text="3",on_click=write),
-        ])
-        ,ft.Row([
+        ]),
+        ft.Row([
         ft.ElevatedButton(text="4",on_click=write),
         ft.ElevatedButton(text="5",on_click=write),
         ft.ElevatedButton(text="6",on_click=write),
@@ -419,7 +607,7 @@ def main(page: ft.Page):
             ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
             ft.Text(f"Total: {total_valor} MT", size=17),
             ft.Row(controls=[
-                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
                 ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                 ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                 ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -480,7 +668,7 @@ def main(page: ft.Page):
                     ft.DataCell(ft.Text(str(len(conta.produtos)))),
                     ft.DataCell(ft.Row([
                         ft.ElevatedButton("fechar",on_click=fechar_contas,key=conta.id,bgcolor=conta.cliente),
-                        ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_600, key=conta.id, on_click=deletar_contas)
+                        ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.INDIGO_400, key=conta.id, on_click=deletar_contas)
                     ])),
                 ],
             ))
@@ -557,9 +745,9 @@ def main(page: ft.Page):
                 mudar()
                 update_contas_list()
             else:
-                cliente_row.content=ft.Text("O cliente nao tem nenhum pedido",color=ft.Colors.RED_400,weight="bold")        
+                cliente_row.content=ft.Text("O cliente nao tem nenhum pedido",color=ft.Colors.INDIGO_400,weight="bold")        
         except:
-            cliente_row.content=ft.Text("Crie um cliente primeiro",color=ft.Colors.RED_400,weight="bold")
+            cliente_row.content=ft.Text("Crie um cliente primeiro",color=ft.Colors.INDIGO_400,weight="bold")
         page.update()
     tabela_contas=ft.DataTable(
             columns=[
@@ -642,7 +830,7 @@ def main(page: ft.Page):
                     show_resumo()
                 else:
                     page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
-                        ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_500),
+                        ft.Icon(ft.Icons.INFO,color=ft.Colors.INDIGO_400),
                         ft.Text(f"O estoque do produto {checkCartStock(carrinho_s)['produto']} \nnao e suficiente para terminar o processo")
                     ])))
 
@@ -704,14 +892,14 @@ def main(page: ft.Page):
         )
 
     card=ft.Container(padding=10,content=choice_perfil,
-         bgcolor=ft.Colors.RED_100,border_radius=10
+         bgcolor=ft.Colors.INDIGO_100,border_radius=10
         )
     login_page=ft.Container(
         content=ft.Column(
             controls=[header,
                       ft.Row([card],
                              alignment=ft.MainAxisAlignment.CENTER),
-                            ft.Row([ft.CupertinoButton(text="Fechar",bgcolor=ft.Colors.RED_400,on_click=lambda e:page.window.close())],
+                            ft.Row([ft.CupertinoButton(text="Fechar",bgcolor=ft.Colors.INDIGO_400,on_click=lambda e:page.window.close())],
                         alignment=ft.MainAxisAlignment.CENTER)],
                         expand=1,
                         alignment=ft.MainAxisAlignment.CENTER
@@ -768,7 +956,7 @@ def main(page: ft.Page):
                            ] )
 
     valor_pagar=ft.TextField(label="valor recebido",on_change=write_payment2)
-    trocoView=ft.Text(weight='bold',size=24,col=ft.Colors.RED_500)
+    trocoView=ft.Text(weight='bold',size=24,col=ft.Colors.INDIGO_400)
     
     def close_show(e):
         page.close(resumo_venda)
@@ -787,7 +975,7 @@ def main(page: ft.Page):
 
     resumo_venda=ft.AlertDialog(title=ft.Text('Resumo da Venda'),actions=[
         ft.TextButton('Cancelar',on_click=close_show),
-        ft.ElevatedButton("imprimir",bgcolor=ft.Colors.RED_500,color='white',on_click=imprimir_fatuta)
+        ft.ElevatedButton("imprimir",bgcolor=ft.Colors.INDIGO_400,color='white',on_click=imprimir_fatuta)
     ])
     
     def show_resumo():
@@ -807,10 +995,10 @@ def main(page: ft.Page):
         total_text.controls.clear()
         total_text.controls.append(ft.Column(controls=[
                 ft.Text(f"Subtotal: 0.0 MT", size=17),
-                ft.Text(f"IVA: 0.0 MT", size=17),  
+                ft.Text(f"IVA: 0.0 MT", size=17), 
                 ft.Text(f"Total : 0.0 MT", size=17),
                 ft.Row(controls=[
-                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
                     ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                     ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                     ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -818,7 +1006,7 @@ def main(page: ft.Page):
             ]))
         lista_vendas.controls.clear()
         page.update()
-S
+
     ####################################################### NAVBAR #############################################################
     if(CheckIsLoged()==True):
         pass
@@ -829,7 +1017,7 @@ S
                 ft.Text(f"Total : 0.0 MT", size=17),
 
                 ft.Row(controls=[
-                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
                     ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                     ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                     ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -860,6 +1048,7 @@ S
         # Verifica se o produto já está no carrinho_s
         for i in range(len(carrinho_s)):
             if str(carrinho_s[i]['id']) == id:
+                # Aumenta a quantidade do item existente em carrinho_s
                 carrinho_s[i]['quantidade'] += quantidade_valor  # Aumenta a quantidade
                 carrinho_s[i]['total'] = carrinho_s[i]['quantidade'] * produto.preco  # Atualiza o total
                 Existe = True
@@ -873,9 +1062,9 @@ S
                 {
                     "id": produto.id, 
                     "barcode": produto.barcode,
-                    "categoria":produto.categoria,
                     "nome": produto.titulo,
                     "preco": produto.preco,
+                    "categoria":produto.categoria,
                     "image": produto.image,
                     "quantidade": quantidade_valor,
                     "total": produto.preco * quantidade_valor,
@@ -910,7 +1099,7 @@ S
             ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
             ft.Text(f"Total: {total} MT", size=17),
             ft.Row(controls=[
-                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
                 ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                 ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                 ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -928,7 +1117,8 @@ S
                         ft.Image(src=f'{imagens}/{item['image']}', width=40, height=40, border_radius=8),
                         ft.Text(item['nome']),
                         ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
-                        ft.Text(f"Qtd: {item['quantidade']}"),  ft.PopupMenuButton(items=[
+                        ft.Text(f"Qtd: {item['quantidade']}"),  # Atualiza a quantidade aqui
+                        ft.PopupMenuButton(items=[
                             ft.PopupMenuItem(text="diminuir",on_click=decrement_item, icon=item['id']),
                             ft.PopupMenuItem(text="Deletar",on_click=delete_item, icon=i),
 
@@ -936,7 +1126,8 @@ S
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                 ))
-            ))S
+            ))
+
         page.update()
 
     def delete_item(e):
@@ -958,18 +1149,18 @@ S
         total = getTotalMoneyCart(carrinho_s)  # Exemplo: 1000 MZN
         iva = total * 0.16  # 16% do total
         subtotal = total - iva  # Subtotal é o total menos o IVA
-        total_text.controls.append(ft.Column(controls=[
-            ft.Text(f"Subtotal: {subtotal} MT", size=17),
-            ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
-            ft.Text(f"Total: {total} MT", size=17),
+        total_text.controls.append(
+            ft.Column(controls=[
+                ft.Text(f"Subtotal: {subtotal} MT", size=17),
+                ft.Text(f"IVA: {round(iva, 2)} MT", size=17), 
+                ft.Text(f"Total: {total} MT", size=17),
                             ft.Row(controls=[
-                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar, icon_color=ft.Colors.INDIGO_400),
                 ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                 ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                 ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
             ])
         ]))
-
         for i, item in enumerate(carrinho_s):
             
             lista_vendas.controls.append(ft.Container(padding=8,height=80,
@@ -1000,7 +1191,7 @@ S
                 # Verifica se a quantidade é maior que 1 para diminuir, caso contrário remove o item
                 if carrinho_s[i]['quantidade'] > 1:
                     carrinho_s[i]['quantidade'] -= 1
-                    carrinho_s[i]['total'] = carrinho_s[i]['quantidade'] * carrinho_s[i]['preco']
+                    carrinho_s[i]['total'] = carrinho_s[i]['quantidade'] * carrinho_s[i]['preco']  # Atualiza o total
                     print("Quantidade do produto no carrinho diminuída.")
                 else:
                     carrinho_s.pop(i)  # Remove o item do carrinho se a quantidade for zero
@@ -1024,7 +1215,7 @@ S
                 ft.Text(f"IVA: {round(iva, 2)} MT", size=17), 
                 ft.Text(f"Total: {total} MT", size=17),
                 ft.Row(controls=[
-                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar, icon_color="red"),
+                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar, icon_color=ft.Colors.INDIGO_400),
                     ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas),
                     ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                     ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -1092,8 +1283,8 @@ S
                     "id": produto.id, 
                     "barcode": produto.barcode,
                     "nome": produto.titulo,
-                    "categoria":produto.categoria,
                     "preco": produto.preco,
+                    "categoria":produto.categoria,
                     "image": produto.image,
                     "quantidade": quantidade_valor,
                     "total": produto.preco * quantidade_valor,
@@ -1108,6 +1299,7 @@ S
 
         total = getTotalMoneyCart(carrinho_s)  # Exemplo: 1000 MZN
         total_valor=total
+
         iva = total * 0.16  # 16% do total
         subtotal = total - iva  # Subtotal é o total menos o IVA
         ultima_venda={
@@ -1127,7 +1319,7 @@ S
             ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
             ft.Text(f"Total: {total} MT", size=17),
             ft.Row(controls=[
-                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
                 ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                 ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                 ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -1142,7 +1334,7 @@ S
                     controls=[
                         ft.Image(src=f'{imagens}/{item['image']}', width=40, height=40, border_radius=8),
                         ft.Text(item['nome']),
-                        ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=12)]),
+                        ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
                         ft.Text(f"Qtd: {item['quantidade']}"),  # Atualiza a quantidade aqui
                         ft.PopupMenuButton(items=[
                             ft.PopupMenuItem(text="diminuir",on_click=decrement_item, icon=item['id']),
@@ -1198,6 +1390,7 @@ S
 
             total = getTotalMoneyCart(carrinho_s)  # Exemplo: 1000 MZN
             total_valor=total
+
             iva = total * 0.16  # 16% do total
             subtotal = total - iva  # Subtotal é o total menos o IVA
             ultima_venda={
@@ -1217,7 +1410,7 @@ S
                 ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
                 ft.Text(f"Total: {total} MT", size=17),
                 ft.Row(controls=[
-                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color="red"),
+                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
                     ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
                     ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
                     ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
@@ -1232,7 +1425,7 @@ S
                         controls=[
                             ft.Image(src=f'{imagens}/{item['image']}', width=40, height=40, border_radius=8),
                             ft.Text(item['nome']),
-                            ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=12)]),
+                            ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
                             ft.Text(f"Qtd: {item['quantidade']}"),  # Atualiza a quantidade aqui
                             ft.PopupMenuButton(items=[
                                 ft.PopupMenuItem(text="diminuir",on_click=decrement_item, icon=item['id']),
@@ -1258,7 +1451,7 @@ S
                                         content=ft.Column([
                                             ft.Image(f'{imagens}/{i.image}',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
                                             ft.Text(i.titulo,weight="bold",size=13),
-                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.RED_700)
+                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
                                         ])
                                         ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
         else:
@@ -1269,14 +1462,14 @@ S
                                         content=ft.Column([
                                             ft.Image(f'{imagens}/{i.image}',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
                                             ft.Text(i.titulo,weight="bold",size=13),
-                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.RED_700)
+                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
                                         ])
                                         ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
         page.update()
     
     def hovercard(e):
         if e.data == "true":  # mouse entra
-            e.control.bgcolor='#fefce8'
+            e.control.bgcolor='#fcf9d9'
             e.control.border_radius=10
 
         else: 
@@ -1293,7 +1486,7 @@ S
                                     content=ft.Column([
                                         ft.Image(f'{imagens}/{i.image}',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
                                         ft.Text(i.titulo,weight="bold",size=13),
-                                        ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.RED_700)
+                                        ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
                                     ])
                                     ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
         page.update()
@@ -1303,16 +1496,17 @@ S
     items_menu=ft.Row(wrap=True,scroll=True,height=altura-110)
     search_categoria = ft.Dropdown(
         label="Categoria",
+        width=230,
         options=[ft.dropdown.Option(categoria.nome) for categoria in categoria_lista],
         on_change=submit
     )
-    search=ft.TextField(label="Procurar Produto",border_radius=12,on_change=submit)
+    search=ft.TextField(label="Procurar Produto",border_radius=12,on_change=submit,width=200)
     
     update_menu()
     
     mesas = [ft.dropdown.Option(f"Mesa {i}") for i in range(1, 31)]
     mesas.insert(0, ft.dropdown.Option("Sem mesa"))
-    mesa=ft.Dropdown(label="Mesa",height=40,
+    mesa=ft.Dropdown(label="Mesa",
                      options=mesas)
     
     # Criando o NavigationRail
@@ -1323,37 +1517,37 @@ S
         min_extended_width=400,
         group_alignment=-0.9,
         leading=ft.Container(padding=5,
-                             content=ft.Text("JP",weight="bold",color=ft.Colors.RED_600,size=35),
+                             content=ft.Text("JP",weight="bold",color=ft.Colors.INDIGO_400,size=35),
     ),
         destinations=[
             ft.NavigationRailDestination(
                 icon=ft.Icon(ft.Icons.HOME_OUTLINED),
-                selected_icon=ft.Icon(ft.Icons.HOME,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.HOME,color=ft.Colors.INDIGO_400),
                 label="Casa"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icon(ft.Icons.WIDGETS),
-                selected_icon=ft.Icon(ft.Icons.WIDGETS,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.WIDGETS,color=ft.Colors.INDIGO_400),
                 label="Produtos"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icon(ft.Icons.INVENTORY),
-                selected_icon=ft.Icon(ft.Icons.INVENTORY,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.INVENTORY,color=ft.Colors.INDIGO_400),
                 label="Estoque"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icon(ft.Icons.MONETIZATION_ON),
-                selected_icon=ft.Icon(ft.Icons.MONETIZATION_ON,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.MONETIZATION_ON,color=ft.Colors.INDIGO_400),
                 label="Saldo"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icon(ft.Icons.TABLE_BAR),
-                selected_icon=ft.Icon(ft.Icons.TABLE_BAR,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.TABLE_BAR,color=ft.Colors.INDIGO_400),
                 label="Mesas"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icon(ft.Icons.TIMELINE_OUTLINED),
-                selected_icon=ft.Icon(ft.Icons.TIMELINE,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.TIMELINE,color=ft.Colors.INDIGO_400),
                 label="Relatorios"
             ),
         ],
@@ -1363,12 +1557,12 @@ S
     bottom_nav=ft.NavigationRail(height=130,width=100,destinations=[
         ft.NavigationRailDestination(
                 icon=ft.Icons.SETTINGS_OUTLINED,
-                selected_icon=ft.Icon(ft.Icons.SETTINGS,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.SETTINGS,color=ft.Colors.INDIGO_400),
                 label="Definicoes"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icons.LOGOUT_OUTLINED,
-                selected_icon=ft.Icon(ft.Icons.LOGOUT,color=ft.Colors.RED_500),
+                selected_icon=ft.Icon(ft.Icons.LOGOUT,color=ft.Colors.INDIGO_400),
                 label="Log out"
             ),
 
@@ -1376,55 +1570,90 @@ S
     
     # Conteúdo inicial do corpo da página
     if CheckIsLoged():
-        body = ft.Container(content=ft.Container(
-        bgcolor="#e1e0e0",
-        content=ft.Column(
-           controls=[
-                ft.Row(
-                    controls=[
-                
-                ft.Container(expand=True,height=altura,
-                             padding=14,
-                             content=ft.Column(controls=[
-                    ft.Container(padding=10,border_radius=10,bgcolor="white",content=ft.Row(controls=[
-                        ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.RED_500),
-                        search_categoria,
-                        search
-                    ],alignment=ft.MainAxisAlignment.SPACE_BETWEEN)),
-                    items_menu
-                ])),
-                ft.Container(width=260,padding=10,bgcolor=ft.Colors.WHITE,content=ft.Column(controls=[
-                    ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.RED_500),
-                     ft.Container(padding=10,margin=10,content=ft.Column(controls=[
-                        ft.Row(controls=[
-                                ft.Text("Data:",size=15),
-                                ft.Text(day,size=15)
-                            ]),
-                        horas,
-                        ft.Row(controls=[
-                                ft.Text("Caixa:",size=15),
-                                ft.Text(userLoged().nome,size=15),    
-                            ]),
-                        
-                    ])),
-                    ft.Card(content=ft.Container(padding=10,
-                                                 content=ft.Column([
-                                                     clientes,mesa,ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta()),
-                                                    ]),)),
-                    ft.Stack(width=260,height=650,controls=[
-                    ft.Container(content=lista_vendas,scale=0.8),
-                    ft.Card(width=235,
-                            bottom=300,
-                            content=ft.Container(padding=10,content=ft.Column(controls=[
-                                total_text
-                                ])))
+        body = ft.Container(
+            content=ft.Container(
+                bgcolor="#F0F8FF",  # Light blue-white background
+                content=ft.Column([
+                    ft.Row(
+                        controls=[
+                            ft.Container(
+                                expand=True,
+                                height=altura,
+                                padding=14,
+                                content=ft.Column(controls=[
+                                    ft.Container(
+                                        padding=10,
+                                        border_radius=10,
+                                        bgcolor="white",
+                                        content=ft.Row(
+                                            controls=[
+                                                ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.INDIGO_400),
+                                                search_categoria,
+                                                search
+                                            ],
+                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                                        )
+                                    ),
+                                    items_menu
                                 ])
-                                ]))
-             
-                    ],)])))
+                            ),
+                            ft.Container(
+                                width=260,
+                                padding=10,
+                                bgcolor=ft.Colors.WHITE,
+                                content=ft.Column(controls=[
+                                    ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
+                                    ft.Container(
+                                        padding=10,
+                                        margin=10,
+                                        content=ft.Column(controls=[
+                                            ft.Row(controls=[
+                                                ft.Text("Data:",size=15),
+                                                ft.Text(day,size=15)
+                                            ]),
+                                            horas,
+                                            ft.Row(controls=[
+                                                ft.Text("Caixa:",size=15),
+                                                ft.Text(userLoged().nome,size=15)
+                                            ])
+                                        ])
+                                    ),
+                                    ft.Card(
+                                        content=ft.Container(
+                                            padding=10,
+                                            content=ft.Column([
+                                                clientes,
+                                                mesa,
+                                                ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta())
+                                            ])
+                                        )
+                                    ),
+                                    ft.Stack(
+                                        width=260,
+                                        height=650,
+                                        controls=[
+                                            lista_vendas,
+                                            ft.Card(
+                                                width=235,
+                                                bottom=300,
+                                                content=ft.Container(
+                                                    padding=10,
+                                                    content=ft.Column(controls=[total_text])
+                                                )
+                                            )
+                                        ]
+                                    )
+                                ])
+                            )
+                        ]
+                    )
+                ])
+            )
+        )
     else:
-        body S= ft.Container(content=ft.Container())
-    #bottom_nav,nav_rail
+        
+        body = ft.Container(content=ft.Container(content=ft.Text("nao tava logado")))
+     #bottom_nav,nav_rail
     body_config=ft.ResponsiveRow(
                 [
                     ft.Container(col=1,content=ft.Column(controls=[
@@ -1440,6 +1669,7 @@ S
         page.add(body_config) 
     else:
         page.add(login_page)
+    initialize_app(page, body_config, login_page)
     while True:
         try:
             update_time()

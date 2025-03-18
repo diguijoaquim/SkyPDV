@@ -40,18 +40,14 @@ info= {
 # Verifica se está congelado (executável) ou rodando como script
 
 
-# Cria a engine do SQLAlchemy
-# Define o caminho do banco de dados
-db_path = os.path.join(os.getenv("LOCALAPPDATA"), ".jpInvest", "banco.db")
-db_directory = os.path.dirname(db_path)
-
-# Verifica se a pasta existe e, se não, cria
-if not os.path.exists(db_directory):
-    os.makedirs(db_directory)
-
+# Altere a string de conexão para MySQL
+db_user = 'root'  # usuário do MySQL
+db_password = ''  # senha do MySQL (deixe vazio se não houver)
+db_host = '127.0.0.1'  # endereço do servidor MySQL
+db_name = 'skypdv'  # substitua pelo nome do seu banco de dados
 
 # Cria a engine do SQLAlchemy
-engine = sqlalchemy.create_engine(f"sqlite:///{db_path}", echo=False)
+engine = sqlalchemy.create_engine(f"mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}", echo=False)
 ano=datetime.now().year
 mes=datetime.now().month
 date=datetime.now().day
@@ -400,9 +396,8 @@ def formatToMoney(data):
     money=f"{data:,.2f}".replace(",", " ").replace(".", ",")
     return money
 def getOneSale(id):
-    return db.query(ProdutoVenda).filter_by(id=id).first(
+    return db.query(ProdutoVenda).filter_by(id=id).first()
 
-    )
 def StartLogin(username,senha):
     user=db.query(Usuario).filter_by(username=username,senha=senha).first()
     if user != None:
@@ -645,6 +640,23 @@ def deleteCategory(id):
     db.delete(cat)
     db.commit()
 
+def updateEstoque(produto_id, quantidade):
+    """
+    Atualiza o estoque de um produto
+    
+    Args:
+        produto_id: ID do produto a ser atualizado
+        quantidade: Nova quantidade a ser adicionada ao estoque
+    """
+    produto = db.query(Produto).filter_by(id=produto_id).first()
+    if produto:
+        estoque_atual = int(produto.estoque)
+        produto.estoque = estoque_atual + quantidade
+        db.commit()
+        print(f"Estoque do produto {produto.titulo} atualizado para {produto.estoque}")
+        return True
+    return False
+
 def abrir_gaveta(printer_name="XP-80C", comando=b'\x1b\x70\x00\x19\xfa'):
     try:
         hPrinter = win32print.OpenPrinter(printer_name)
@@ -698,7 +710,6 @@ def print_receipt(dados, printer_name="XP-80C"):
         esc_pos_commands += b'-----------------Volte-Sempre-------------------\n'
         esc_pos_commands += b'From ElectroGulamo - sistemas\n'
 
-        esc_pos_commands += b'\x1b\x64\x02'
         esc_pos_commands += b'\x1d\x56\x41\x00'
         if dados['metodo'] =='Cash':
             print('cash')

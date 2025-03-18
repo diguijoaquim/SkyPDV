@@ -25,6 +25,10 @@ class Produto(Base):
     categoria_id=Column(Integer, ForeignKey("categorias.id"))
     categoria=Column(String(50))
 
+    # Modificar as relações para usar cascade delete
+    entradas = relationship("EntradaEstoque", back_populates="produto", cascade="all, delete")
+    saidas = relationship("SaidaEstoque", back_populates="produto", cascade="all, delete")
+
 class Categoria(Base):
     __tablename__="categorias"
     id=Column(Integer,primary_key=True)
@@ -38,8 +42,8 @@ class EntradaEstoque(Base):
     produto_id = Column(Integer, ForeignKey('produtos.id'), nullable=False)
     quantidade = Column(Integer, nullable=False)
     data_entrada = Column(DateTime, default=datetime.now)
-    # Relacionamento com o Produto
-    produto = relationship("Produto", backref="entradas", cascade="all, delete")
+    # Relationship with back_populates instead of backref
+    produto = relationship("Produto", back_populates="entradas")
     relatorio_id = Column(Integer, ForeignKey("relatorios.id"), nullable=True)
    
 # Tabela de Saída no Estoque
@@ -50,8 +54,8 @@ class SaidaEstoque(Base):
     produto_id = Column(Integer, ForeignKey('produtos.id'), nullable=False)
     quantidade = Column(Integer, nullable=False)
     data_saida = Column(DateTime, default=datetime.now)
-    # Relacionamento com o Produto
-    produto = relationship("Produto", backref="saidas", cascade="all, delete")
+    # Relationship with back_populates instead of backref
+    produto = relationship("Produto", back_populates="saidas")
     relatorio_id = Column(Integer, ForeignKey("relatorios.id"), nullable=True)
 
     
@@ -108,4 +112,25 @@ class RelatorioEstoque(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     relatorio_id = Column(Integer, nullable=False, unique=True)  # ID único para o relatório
     historico = Column(JSON, nullable=False)  # Coluna para armazenar a lista completa como JSON
+    
+def deletarProduto(id):
+    try:
+        # Primeiro, deletamos todas as entradas de estoque relacionadas
+        db.query(EntradaEstoque).filter_by(produto_id=id).delete()
+        
+        # Depois, deletamos todas as saídas de estoque relacionadas
+        db.query(SaidaEstoque).filter_by(produto_id=id).delete()
+        
+        # Por fim, deletamos o produto
+        produto = db.query(Produto).filter_by(id=id).first()
+        if produto:
+            db.delete(produto)
+            db.commit()
+            print(f"O produto {produto.titulo} foi deletado com sucesso!")
+        else:
+            print("Produto não encontrado.")
+            
+    except Exception as e:
+        db.rollback()
+        print(f"Erro ao deletar produto: {str(e)}")
     
