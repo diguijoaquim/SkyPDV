@@ -6,74 +6,126 @@ class MoneyPage(ft.Container):
         super().__init__()
         self.page = page
         self.expand = True
-        self.bgcolor = "#F0F8FF"  # Light blue-white background
-
+        self.content = self.build()
+        
     def build(self):
+        # Buscar todos os produtos usando a função verProdutos()
+        produtos = verProdutos()  # Usando a função verProdutos() para obter os produtos
+        
+        # Transformar em dicionário agrupado por categoria
+        produtos_por_categoria = {}
+        total_produtos = 0
+        valor_total = 0
+        
+        for produto in produtos:
+            categoria = produto.categoria
+            if categoria not in produtos_por_categoria:
+                produtos_por_categoria[categoria] = {
+                    'quantidade': 0,
+                    'valor_total': 0,
+                    'produtos': []
+                }
+            
+            produtos_por_categoria[categoria]['quantidade'] += produto.estoque
+            produtos_por_categoria[categoria]['valor_total'] += produto.preco * produto.estoque
+            produtos_por_categoria[categoria]['produtos'].append(produto)
+            
+            total_produtos += produto.estoque
+            valor_total += produto.preco * produto.estoque
+        
+        # Obter valores específicos para cada categoria
+        cafetaria_info = produtos_por_categoria.get('Cafetaria', {'quantidade': 0, 'valor_total': 0})
+        cozinha_info = produtos_por_categoria.get('Cozinha', {'quantidade': 0, 'valor_total': 0})
+        loja_info = produtos_por_categoria.get('Loja', {'quantidade': 0, 'valor_total': 0})
+        
+        # Criar cards
+        card_empresa = self.criar_card(
+            "Saldo Total da Empresa",
+            f"{formatToMoney(valor_total)} MZN",
+            f"Total de Produtos: {total_produtos}",
+            ft.Colors.INDIGO_300  # Cor de fundo uniforme
+        )
+        
+        card_cafetaria = self.criar_card(
+            "Saldo da Cafetaria",
+            f"{formatToMoney(cafetaria_info['valor_total'])} MZN",
+            f"Produtos: {cafetaria_info['quantidade']}",
+            ft.Colors.INDIGO_300  # Cor de fundo uniforme
+        )
+        
+        card_cozinha = self.criar_card(
+            "Saldo da Cozinha",
+            f"{formatToMoney(cozinha_info['valor_total'])} MZN",
+            f"Produtos: {cozinha_info['quantidade']}",
+            ft.Colors.INDIGO_300  # Cor de fundo uniforme
+        )
+        
+        card_loja = self.criar_card(
+            "Saldo da Loja",
+            f"{formatToMoney(loja_info['valor_total'])} MZN",
+            f"Produtos: {loja_info['quantidade']}",
+            ft.Colors.INDIGO_300  # Cor de fundo uniforme
+        )
+        
+        card_outros = self.criar_card(
+            "Resumo de Categorias",
+            f"{len(produtos_por_categoria)} Categorias",
+            f"Valor Médio: {formatToMoney(valor_total/max(1, len(produtos_por_categoria)))} MZN",
+            ft.Colors.INDIGO_300  # Cor de fundo uniforme
+        )
+        
         return ft.Container(
-            bgcolor="#F0F8FF",  # Light blue-white background
-            content=ft.Column([
-                ft.Container(
-                    padding=10,
-                    border_radius=10,
-                    bgcolor="white",
-                    content=ft.Row([
-                        ft.Text("Finanças", size=30, weight="bold", color=ft.Colors.INDIGO_400),
-                        ft.ElevatedButton(
-                            "Exportar Relatório",
-                            icon=ft.icons.DOWNLOAD,
-                            bgcolor=ft.Colors.INDIGO_400,
-                            color="white",
-                        
-                        )
-                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
-                ),
-                ft.Container(
-                    padding=20,
-                    content=ft.Column([
-                        ft.Row([
-                            ft.Container(
-                                padding=20,
-                                bgcolor="white",
-                                border_radius=10,
-                                content=ft.Column([
-                                    ft.Text("Vendas Hoje", size=20, color=ft.Colors.INDIGO_400),
-                                    ft.Text("10,000 MT", size=30, weight="bold")
-                                ])
-                            ),
-                            ft.Container(
-                                padding=20,
-                                bgcolor="white",
-                                border_radius=10,
-                                content=ft.Column([
-                                    ft.Text("Vendas Mês", size=20, color=ft.Colors.INDIGO_400),
-                                    ft.Text("150,000 MT", size=30, weight="bold")
-                                ])
-                            )
-                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            bgcolor="#F0F8FF",
+            expand=True,
+            padding=20,
+            content=ft.Column(
+                [
+                    ft.Text("Visão Financeira", size=32, weight="bold", color=ft.Colors.INDIGO_900),
+                    ft.Divider(height=1, color=ft.Colors.INDIGO_200),
+                    ft.Container(height=20),
+                    
+                    # Usando ft.ResponsiveRow para cards responsivos
+                    ft.ResponsiveRow(
+                        [
+                            ft.Column([card_empresa], col=2.4),  # Cada card ocupa 2.4 colunas
+                            ft.Column([card_cafetaria], col=2.4),
+                            ft.Column([card_cozinha], col=2.4),
+                            ft.Column([card_loja], col=2.4),
+                            ft.Column([card_outros], col=2.4)
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.START,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        )
+    
+    def criar_card(self, titulo, valor, subtitulo, cor):
+        return ft.Card(
+            elevation=0,  # Removido a sombra
+            margin=5,
+            content=ft.Container(
+                width=220,
+                height=170,
+                padding=10,
+                bgcolor=cor,  # Definindo a cor de fundo do card
+                border_radius=10,
+                content=ft.Column(
+                    [
+                        ft.Text(titulo, size=18, weight="bold", color=ft.colors.WHITE),
+                        ft.Container(height=5),
+                        ft.Text(valor, size=24, weight="bold", color=ft.colors.WHITE),
+                        ft.Container(height=5),
+                        ft.Text(subtitulo, size=14, color=ft.colors.WHITE),
                         ft.Container(
-                            padding=20,
-                            content=ft.DataTable(
-                                columns=[
-                                    ft.DataColumn(ft.Text("Data")),
-                                    ft.DataColumn(ft.Text("Descrição")),
-                                    ft.DataColumn(ft.Text("Valor")),
-                                    ft.DataColumn(ft.Text("Status")),
-                                ],
-                                rows=[
-                                    ft.DataRow(
-                                        cells=[
-                                            ft.DataCell(ft.Text("2024-01-20")),
-                                            ft.DataCell(ft.Text("Venda #1234")),
-                                            ft.DataCell(ft.Text("1,000 MT")),
-                                            ft.DataCell(ft.Text("Concluído", color=ft.Colors.INDIGO_400))
-                                        ]
-                                    )
-                                ]
-                            )
+                            alignment=ft.alignment.bottom_right,
+                            content=ft.Icon(ft.icons.EQUALIZER, color=ft.colors.with_opacity(0.3, ft.colors.WHITE), size=30)
                         )
-                    ])
+                    ],
+                    spacing=5,
                 )
-            ])
+            )
         )
 
 # Função de compatibilidade para o código existente

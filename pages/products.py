@@ -27,6 +27,23 @@ class ProductsPage(ft.Container):
         self.file_picker = ft.FilePicker(on_result=self.file_picker_result)
         self.page.overlay.append(self.file_picker)
         
+        # Componente para nova categoria
+        self.nova_categoria_input = ft.TextField(label="Nome da Categoria", width=400)
+        
+        # Dialog para adicionar nova categoria
+        self.dlg_categoria = ft.AlertDialog(
+            title=ft.Text("Adicionar Nova Categoria", size=24),
+            content=self.nova_categoria_input,
+            actions=[
+                ft.TextButton("Cancelar", on_click=self.cancel_categoria_dlg),
+                ft.CupertinoButton(
+                    text="Salvar",
+                    bgcolor=ft.colors.BLUE,
+                    on_click=self.salvar_categoria
+                )
+            ]
+        )
+        
         self.status_text = ft.Text()
         self.select_button = ft.ElevatedButton(text="Selecionar Foto", on_click=lambda _: self.file_picker.pick_files(allow_multiple=False))
         
@@ -124,6 +141,20 @@ class ProductsPage(ft.Container):
             ],
             column_spacing=50,
             rows=[]
+        )
+        
+        # Container para a tabela com scroll
+        self.produtos_grid = ft.Container(
+            content=ft.ListView(
+                expand=True,
+                spacing=10,
+                padding=10,
+                auto_scroll=True,
+                controls=[self.produtos_table]
+            ),
+            expand=True,
+            border=ft.border.all(1, ft.Colors.OUTLINE),
+            border_radius=10
         )
         
         # Inicializa os produtos
@@ -402,14 +433,13 @@ class ProductsPage(ft.Container):
             padding=8,
             content=ft.Column(
                 [
-                    # Cabeçalho fixo
                     ft.Container(
                         padding=10,
                         border_radius=10,
                         bgcolor="white",
                         content=ft.Row([
                             ft.Text("Produtos", size=30, weight="bold", color=ft.Colors.INDIGO_400),
-                            ft.ElevatedButton(
+                            ft.CupertinoButton(
                                 "Adicionar Produto",
                                 icon=ft.Icons.ADD,
                                 bgcolor=ft.Colors.INDIGO_400,
@@ -418,25 +448,54 @@ class ProductsPage(ft.Container):
                             )
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
                     ),
-                    # Barra de pesquisa fixa
                     ft.Row([
                         self.search,
                         self.search_categoria,
+                        ft.CupertinoButton(
+                            "Adicionar Categoria",
+                            icon=ft.Icons.CATEGORY,
+                            bgcolor=ft.Colors.INDIGO_400,
+                            color="white",
+                            on_click=self.abrir_add_categoria
+                        ),
                     ]),
-                    # Container com scroll que ocupa o resto do espaço
-                    ft.Container(
-                        content=self.produtos_table,
-                        expand=True,
-                        border=ft.border.all(1, ft.Colors.OUTLINE),
-                        border_radius=10,
-                        padding=10,
-                        scroll=ft.ScrollMode.ALWAYS
-                    )
+                    ft.Container(content=self.produtos_grid,expand=1)
                 ],
                 spacing=10,
-                height=float("inf")  # Faz o Column ocupar toda a altura disponível
+                expand=True
             )
         )
+
+    def cancel_categoria_dlg(self, e):
+        self.dlg_categoria.open = False
+        self.page.update()
+    
+    def abrir_add_categoria(self, e):
+        self.nova_categoria_input.value = ""
+        self.page.open(self.dlg_categoria)
+    
+    def salvar_categoria(self, e):
+        if self.nova_categoria_input.value.strip() != "":
+            # Correct function name: addCategories instead of addCategoria
+            addCategories(self.nova_categoria_input.value.strip())
+            
+            # Atualizar a lista de categorias
+            self.categoria_lista = getCategorias()
+            
+            # Atualizar os dropdowns de categorias
+            self.categoria.options = [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
+            self.input_categoria.options = [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
+            self.search_categoria.options = [ft.dropdown.Option("todas")] + [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
+            
+            self.page.close(self.dlg_categoria)
+            self.page.update()
+        else:
+            # Mostrar erro se o nome da categoria estiver vazio
+            self.page.open(ft.AlertDialog(
+                title=ft.Text("Erro"),
+                content=ft.Text("O nome da categoria não pode estar vazio."),
+                actions=[ft.TextButton("OK", on_click=lambda e: self.page.close())]
+            ))
 
 # Função de compatibilidade para o código existente
 def produtoBody(page_param, menu):
