@@ -102,9 +102,11 @@ class ContasAbertas(Base):
     
     id = Column(Integer, primary_key=True)
     cliente = Column(String(100), nullable=False, unique=True)
+    mesa_id = Column(Integer, ForeignKey('mesas.id'), nullable=True)  # Chave estrangeira para Mesa
     
     # Relacionamento com ProdutosConta (um para muitos)
     produtos = relationship("ProdutosConta", back_populates="conta", cascade="all, delete")
+    mesa = relationship("Mesa", back_populates="contas")  # Relacionamento com Mesa
 
 class RelatorioEstoque(Base):
     __tablename__ = 'relatorio_estoque'
@@ -113,24 +115,13 @@ class RelatorioEstoque(Base):
     relatorio_id = Column(Integer, nullable=False, unique=True)  # ID único para o relatório
     historico = Column(JSON, nullable=False)  # Coluna para armazenar a lista completa como JSON
     
-def deletarProduto(id):
-    try:
-        # Primeiro, deletamos todas as entradas de estoque relacionadas
-        db.query(EntradaEstoque).filter_by(produto_id=id).delete()
-        
-        # Depois, deletamos todas as saídas de estoque relacionadas
-        db.query(SaidaEstoque).filter_by(produto_id=id).delete()
-        
-        # Por fim, deletamos o produto
-        produto = db.query(Produto).filter_by(id=id).first()
-        if produto:
-            db.delete(produto)
-            db.commit()
-            print(f"O produto {produto.titulo} foi deletado com sucesso!")
-        else:
-            print("Produto não encontrado.")
-            
-    except Exception as e:
-        db.rollback()
-        print(f"Erro ao deletar produto: {str(e)}")
+class Mesa(Base):
+    __tablename__ = "mesas"
     
+    id = Column(Integer, primary_key=True)
+    numero = Column(Integer, nullable=False, unique=True)  # Número da mesa
+    capacidade = Column(Integer, nullable=False)  # Capacidade da mesa
+    status = Column(String(20), default="livre")  # Status da mesa: livre, reservada, ocupada
+    
+    # Relacionamento com ContasAbertas (um para muitos, se necessário)
+    contas = relationship("ContasAbertas", back_populates="mesa", cascade="all, delete")

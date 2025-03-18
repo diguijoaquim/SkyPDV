@@ -3,7 +3,7 @@ import os
 import shutil
 import flet as ft
 from controler import *
-from models.modelos import ProdutoVenda
+from models.modelos import ProdutoVenda,Mesa
 from datetime import datetime
 from pdv2pdf import*
 from time import sleep
@@ -153,10 +153,11 @@ def main(page: ft.Page):
             page.add(login_page)
         
     def chage_nav(e):
-        selected_index=e.control.selected_index
-        bottom_nav.selected_index=None
+        selected_index = e.control.selected_index
+        bottom_nav.selected_index = None
 
         if selected_index == 0:
+            update_mesas_dropdown()  # Atualiza as mesas ao voltar para a página principal
             body.content = ft.Container(
                 bgcolor="#F0F8FF",  # Light blue-white background
                 content=ft.Column(
@@ -258,6 +259,7 @@ def main(page: ft.Page):
         elif selected_index == 5:
             # Página de relatórios - usando a classe RelatorioPage
             body.content = RelatorioPage(page)
+            update_mesas_dropdown()  # Atualiza as mesas após possíveis alterações na página de mesas
             page.update()
         else:
             page.clean()
@@ -324,10 +326,11 @@ def main(page: ft.Page):
     
     def entrar(e):
         global username,caixa
-        result=StartLogin(username,login_input.value)
+        result = StartLogin(username, login_input.value)
         if(result != False):
             update_menu()
-            card.content=choice_perfil
+            update_mesas_dropdown()
+            card.content = choice_perfil
             
             username=e.control.key
             login_perfil.offset = ft.transform.Offset(0, 0)
@@ -458,8 +461,9 @@ def main(page: ft.Page):
     choice_perfil=ft.Column(
         [ft.Row([ft.Text("Escolha o seu perfil")]),
          perfiles
+        ]
+    )
 
-        ])
     def clear(e):
         login_input.value=''
         page.update()
@@ -1335,7 +1339,7 @@ def main(page: ft.Page):
                         ft.Image(src=f'{imagens}/{item['image']}', width=40, height=40, border_radius=8),
                         ft.Text(item['nome']),
                         ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
-                        ft.Text(f"Qtd: {item['quantidade']}"),  # Atualiza a quantidade aqui
+                        ft.Text(f"Qtd: {item['quantidade']}"),
                         ft.PopupMenuButton(items=[
                             ft.PopupMenuItem(text="diminuir",on_click=decrement_item, icon=item['id']),
                             ft.PopupMenuItem(text="Deletar",on_click=delete_item, icon=i),
@@ -1504,11 +1508,28 @@ def main(page: ft.Page):
     
     update_menu()
     
-    mesas = [ft.dropdown.Option(f"Mesa {i}") for i in range(1, 31)]
-    mesas.insert(0, ft.dropdown.Option("Sem mesa"))
-    mesa=ft.Dropdown(label="Mesa",
-                     options=mesas)
+    def update_mesas_dropdown():
+        # Busca todas as mesas do banco de dados
+        mesas_db = db.query(Mesa).order_by(Mesa.numero).all()
+        
+        # Cria as opções para o dropdown com indicadores visuais de status
+        mesas_options = []
+        for m in mesas_db:
+            # Determina a cor baseada no status
+            status_color = "🟢" if m.status == "livre" else "🔴" if m.status == "ocupada" else "🟠"
+            mesas_options.append(ft.dropdown.Option(f"{status_color} Mesa {m.numero} ({m.status})"))
+        
+        # Adiciona a opção "Sem mesa" no início
+        mesas_options.insert(0, ft.dropdown.Option("Sem mesa"))
+        
+        # Atualiza as opções do dropdown
+        mesa.options = mesas_options
+        page.update()
     
+    mesa = ft.Dropdown(label="Mesa", options=[ft.dropdown.Option("Sem mesa")])
+    # Carrega as mesas do banco de dados
+    update_mesas_dropdown()
+
     # Criando o NavigationRail
     nav_rail = ft.NavigationRail(
         selected_index=0,
