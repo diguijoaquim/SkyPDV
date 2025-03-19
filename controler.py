@@ -302,12 +302,23 @@ def addVenda(venda):
 def verVendas():
     return db.query(ProdutoVenda).all()
 
-def addRelatorio(day,entrada):
-
-    relatorio=RelatorioVenda(nome=f"relatorio{day}",data=day,caixa="admin",entrada=entrada)
+def addRelatorio(day, entrada=None):
+    relatorio=RelatorioVenda(nome=f"relatorio{day}",data=day,caixa="admin",funcionario=userLoged().nome if userLoged() else "admin")
     db.add(relatorio)
     db.commit()
+    
+    if entrada:
+        for item in entrada:
+            entrada_estoque = EntradaEstoque(
+                nome=item['nome'],
+                quantidade=item['estoque'],
+                produto_id=db.query(Produto).filter_by(titulo=item['nome']).first().id,
+                relatorio_id=relatorio.id
+            )
+            db.add(entrada_estoque)
+        db.commit()
     print("Relatorio Cadastrado")
+    return relatorio
 
 def RemoveRelatorio(day):
     relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
@@ -351,8 +362,14 @@ def totalVendaMoneyRelatorio(day):
     try:
         relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
         total=0.00
+        # Soma o total das vendas
         for venda in relatorio.vendas:
             total+=totalVendaMoney(venda.id)
+        # Soma o total das saídas de estoque
+        for saida in relatorio.saida_estoque:
+            produto = db.query(Produto).filter_by(id=saida.produto_id).first()
+            if produto:
+                total += produto.preco * saida.quantidade
         money=f"{total:,.2f}".replace(",", " ").replace(".", ",")
         return money
     except:
@@ -537,42 +554,41 @@ def calcular_estoque_restante(estoque_inicial, quantidade_saida):
 
 
 def getSaidas(relatorio_id): 
-    # Consulta para pegar todas as saídas relacionadas ao relatório
-    saidas = db.query(SaidaEstoque).filter_by(relatorio_id=relatorio_id).all()
-
-    # Usando um defaultdict para somar as quantidades por nome de produto
+    relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
+    if not relatorio:
+        return {}
+    
+    # Usa o relacionamento direto saida_estoque
     produtos_dict = defaultdict(int)
-
-    # Itera pelas saídas e acumula a quantidade por produto
-    for saida in saidas:
+    for saida in relatorio.saida_estoque:
         produtos_dict[saida.nome] += saida.quantidade
 
     return produtos_dict
 
 def getEntradas(relatorio_id):
-    entradas=db.query(EntradaEstoque).filter_by(relatorio_id=relatorio_id).all()
+    relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
+    if not relatorio:
+        return {}
+    
+    # Usa o relacionamento direto entrada_estoque
     produtos_dict = defaultdict(int)
-
-    # Itera pelas saídas e acumula a quantidade por produto
-    for entrada in entradas:
+    for entrada in relatorio.entrada_estoque:
         produtos_dict[entrada.nome] += entrada.quantidade
 
     return produtos_dict
 
 def getHistoricoEstoque(relatorio_id):
     """
-    Esta função retorna uma lista de produtos movimentados no estoque.
-    1. Acha todos os produtos.
-    2. Calcula entradas e saídas de cada produto.
-    3. Seleciona produtos que têm pelo menos uma entrada ou saída.
-    
-    Retorna uma lista no formato:
-    [{"nome": "coca", "estoque_inicial": 5, "entrada": 5, "saida": 6, "estoque_atual": 5},
-     {"nome": "fanta", "estoque_inicial": 2, "entrada": 5, "saida": 3, "estoque_atual": 5}]
+    Esta função retorna uma lista de produtos movimentados no estoque usando os relacionamentos
+    entrada_estoque e saida_estoque do RelatorioVenda.
     """
-    produtos = db.query(Produto).all()
-    entradas = db.query(EntradaEstoque).filter_by(relatorio_id=relatorio_id).all()
-    saidas = db.query(SaidaEstoque).filter_by(relatorio_id=relatorio_id).all()
+    relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
+    if not relatorio:
+        return []
+
+    # Usa os relacionamentos diretos do RelatorioVenda
+    entradas = relatorio.entrada_estoque
+    saidas = relatorio.saida_estoque
 
     # Mapeia entradas e saídas por produto
     entradas_por_produto = {}
@@ -586,36 +602,23 @@ def getHistoricoEstoque(relatorio_id):
     # Lista para armazenar os dados do histórico
     historico = []
 
+    # Obtém produtos únicos das movimentações
+    produtos_ids = set(list(entradas_por_produto.keys()) + list(saidas_por_produto.keys()))
+    produtos = db.query(Produto).filter(Produto.id.in_(produtos_ids)).all()
+
     # Calcula os dados para cada produto
     for produto in produtos:
         entrada = entradas_por_produto.get(produto.id, 0)
         saida = saidas_por_produto.get(produto.id, 0)
         
-        # Considera apenas produtos que têm movimentação
-        if entrada > 0 or saida > 0:
-            estoque_inicial = produto.estoque + saida - entrada
-            historico.append({
-                "nome": produto.titulo,
-                "estoque_inicial": estoque_inicial,
-                "entrada": entrada,
-                "saida": saida,
-                "estoque_atual": produto.estoque,
-            })
-
-    try:
-        # Verifica se o relatório já existe
-        relatorio = db.query(RelatorioEstoque).filter_by(relatorio_id=relatorio_id).first()
-        if relatorio:
-            relatorio.historico = historico  # Atualiza o histórico
-        else:
-            # Cria um novo relatório caso não exista
-            novo_relatorio = RelatorioEstoque(relatorio_id=relatorio_id, historico=historico)
-            db.add(novo_relatorio)
-        
-        db.commit()  # Salva as alterações no banco
-    except Exception as e:
-        db.rollback()  # Caso ocorra algum erro, desfaz as alterações
-        raise Exception(f"Erro ao salvar o relatório: {e}")
+        estoque_inicial = produto.estoque + saida - entrada
+        historico.append({
+            "nome": produto.titulo,
+            "estoque_inicial": estoque_inicial,
+            "entrada": entrada,
+            "saida": saida,
+            "estoque_atual": produto.estoque,
+        })
 
     return historico
 

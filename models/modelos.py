@@ -67,8 +67,6 @@ class RelatorioVenda(Base):
     caixa=Column(String(50))
     vendas=relationship("ProdutoVenda", backref="relatorios",cascade="all, delete")
     funcionario=Column(String(40))
-    entrada = Column(JSON)
-    saida = Column(JSON,nullable=True)
     entrada_estoque = relationship("EntradaEstoque", backref="relatorio",cascade="all, delete")
     saida_estoque = relationship("SaidaEstoque", backref="relatorio",cascade="all, delete")
 

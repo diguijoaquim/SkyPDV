@@ -27,18 +27,50 @@ class ProductsPage(ft.Container):
         self.file_picker = ft.FilePicker(on_result=self.file_picker_result)
         self.page.overlay.append(self.file_picker)
         
-        # Componente para nova categoria
+        # Componentes para gestão de categorias
         self.nova_categoria_input = ft.TextField(label="Nome da Categoria", width=400)
         
-        # Dialog para adicionar nova categoria
+        # Tabela de categorias
+        self.categorias_table = ft.DataTable(
+            columns=[
+                ft.DataColumn(ft.Text("Nome")),
+                ft.DataColumn(ft.Text("Ações"), numeric=True)
+            ],
+            rows=[]
+        )
+        
+        # Atualizar tabela de categorias
+        self.atualizar_tabela_categorias()
+        
+        # Dialog para gestão de categorias
         self.dlg_categoria = ft.AlertDialog(
+            title=ft.Text("Gestão de Categorias", size=24),
+            content=ft.Column([
+                ft.Row([
+                    ft.CupertinoButton(
+                        "Adicionar Nova Categoria",
+                        icon=ft.icons.ADD,
+                        bgcolor=ft.colors.INDIGO_400,
+                        color="white",
+                        on_click=self.abrir_add_categoria_dialog
+                    )
+                ]),
+                self.categorias_table
+            ], scroll=True, spacing=10),
+            actions=[
+                ft.TextButton("Fechar", on_click=self.cancel_categoria_dlg)
+            ]
+        )
+        
+        # Dialog para adicionar/editar categoria
+        self.dlg_add_categoria = ft.AlertDialog(
             title=ft.Text("Adicionar Nova Categoria", size=24),
             content=self.nova_categoria_input,
             actions=[
-                ft.TextButton("Cancelar", on_click=self.cancel_categoria_dlg),
+                ft.TextButton("Cancelar", on_click=lambda e: self.page.close(self.dlg_add_categoria)),
                 ft.CupertinoButton(
                     text="Salvar",
-                    bgcolor=ft.colors.BLUE,
+                    bgcolor=ft.colors.INDIGO_400,
                     on_click=self.salvar_categoria
                 )
             ]
@@ -144,7 +176,7 @@ class ProductsPage(ft.Container):
         )
         
         # Container para a tabela com scroll
-        self.produtos_grid = ft.Container(
+        self.produtos_list = ft.Container(
             content=ft.ListView(
                 expand=True,
                 spacing=10,
@@ -452,34 +484,88 @@ class ProductsPage(ft.Container):
                         self.search,
                         self.search_categoria,
                         ft.CupertinoButton(
-                            "Adicionar Categoria",
+                            "Gestão de Categorias",
                             icon=ft.Icons.CATEGORY,
                             bgcolor=ft.Colors.INDIGO_400,
                             color="white",
                             on_click=self.abrir_add_categoria
                         ),
                     ]),
-                    ft.Container(content=self.produtos_grid,expand=1)
+                    ft.Container(content=self.produtos_list,expand=1)
                 ],
                 spacing=10,
                 expand=True
             )
         )
 
+    def atualizar_tabela_categorias(self):
+        self.categorias_table.rows = [
+            ft.DataRow(
+                cells=[
+                    ft.DataCell(ft.Text(categoria.nome)),
+                    ft.DataCell(
+                        ft.Row([
+                            ft.IconButton(
+                                icon=ft.icons.EDIT,
+                                icon_color=ft.colors.INDIGO_400,
+                                tooltip="Editar",
+                                on_click=lambda e, cat=categoria: self.editar_categoria(cat)
+                            ),
+                            ft.IconButton(
+                                icon=ft.icons.DELETE,
+                                icon_color=ft.colors.RED,
+                                tooltip="Excluir",
+                                on_click=lambda e, cat=categoria: self.excluir_categoria(cat)
+                            )
+                        ], alignment=ft.MainAxisAlignment.END)
+                    )
+                ]
+            ) for categoria in self.categoria_lista
+        ]
+        self.page.update()
+    
     def cancel_categoria_dlg(self, e):
         self.dlg_categoria.open = False
         self.page.update()
     
     def abrir_add_categoria(self, e):
-        self.nova_categoria_input.value = ""
         self.page.open(self.dlg_categoria)
+    
+    def abrir_add_categoria_dialog(self, e):
+        self.nova_categoria_input.value = ""
+        self.page.open(self.dlg_add_categoria)
+    
+    def editar_categoria(self, categoria):
+        self.nova_categoria_input.value = categoria.nome
+        self.categoria_em_edicao = categoria
+        self.dlg_add_categoria.title = ft.Text("Editar Categoria", size=24)
+        self.page.open(self.dlg_add_categoria)
+    
+    def excluir_categoria(self, categoria):
+        def confirmar_exclusao(e):
+            deleteCategory(categoria.id)
+            self.categoria_lista = getCategorias()
+            # Atualizar os dropdowns de categorias
+            self.categoria.options = [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
+            self.input_categoria.options = [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
+            self.search_categoria.options = [ft.dropdown.Option("todas")] + [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
+            self.page.close(dlg_confirmar)
+            self.atualizar_tabela_categorias()
+            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Categoria {categoria.nome} excluída com sucesso!")))
+        
+        dlg_confirmar = ft.AlertDialog(
+            title=ft.Text("Confirmar Exclusão"),
+            content=ft.Text(f"Deseja realmente excluir a categoria {categoria.nome}?"),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: self.page.close(dlg_confirmar)),
+                ft.ElevatedButton("Excluir", on_click=confirmar_exclusao, color=ft.colors.RED)
+            ]
+        )
+        self.page.open(dlg_confirmar)
     
     def salvar_categoria(self, e):
         if self.nova_categoria_input.value.strip() != "":
-            # Correct function name: addCategories instead of addCategoria
             addCategories(self.nova_categoria_input.value.strip())
-            
-            # Atualizar a lista de categorias
             self.categoria_lista = getCategorias()
             
             # Atualizar os dropdowns de categorias
@@ -487,10 +573,12 @@ class ProductsPage(ft.Container):
             self.input_categoria.options = [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
             self.search_categoria.options = [ft.dropdown.Option("todas")] + [ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
             
-            self.page.close(self.dlg_categoria)
+            # Atualizar a tabela de categorias
+            self.atualizar_tabela_categorias()
+            
+            self.page.close(self.dlg_add_categoria)
             self.page.update()
         else:
-            # Mostrar erro se o nome da categoria estiver vazio
             self.page.open(ft.AlertDialog(
                 title=ft.Text("Erro"),
                 content=ft.Text("O nome da categoria não pode estar vazio."),

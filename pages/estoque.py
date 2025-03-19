@@ -37,13 +37,15 @@ class EstoquePage(ft.Container):
         self.historico = ft.DataTable(
             expand=True,
             columns=[
-                ft.DataColumn(ft.Text("Nome")),
-                ft.DataColumn(ft.Text("Estoque Inicial"), numeric=True),
-                ft.DataColumn(ft.Text("Entradas"), numeric=True),
-                ft.DataColumn(ft.Text("Saídas"), numeric=True),
-                ft.DataColumn(ft.Text("Estoque Atual"), numeric=True),
+                ft.DataColumn(ft.Text("Nome", size=16, weight="bold")),
+                ft.DataColumn(ft.Text("Estoque Inicial", size=16, weight="bold")),
+                ft.DataColumn(ft.Text("Entradas", size=16, weight="bold")),
+                ft.DataColumn(ft.Text("Saídas", size=16, weight="bold")),
+                ft.DataColumn(ft.Text("Estoque Atual", size=16, weight="bold"))
             ],
-            column_spacing=50
+            column_spacing=30,
+            horizontal_lines=ft.border.BorderSide(1, "#EEEEEE"),
+            vertical_lines=ft.border.BorderSide(1, "#EEEEEE")
         )
         
         # Container para a tabela com scroll
@@ -194,13 +196,17 @@ class EstoquePage(ft.Container):
             for estoque in getHistoricoEstoque(self.selected_relatorio_id):
                 self.historico.rows.append(
                     ft.DataRow(cells=[
-                        ft.DataCell(ft.Text(estoque['nome'])),
-                        ft.DataCell(ft.Text(estoque['estoque_inicial'])),
+                        ft.DataCell(ft.Container(
+                            content=ft.Text(estoque['nome'], size=14),
+                            padding=ft.padding.symmetric(horizontal=10)
+                        )),
+                        ft.DataCell(ft.Text(estoque['estoque_inicial'], size=14)),
                         ft.DataCell(ft.Container(
                             content=ft.Text(
                                 estoque['entrada'],
                                 color="green",
-                                weight="bold"
+                                weight="bold",
+                                size=14
                             ),
                             padding=5,
                             border_radius=5,
@@ -210,13 +216,14 @@ class EstoquePage(ft.Container):
                             content=ft.Text(
                                 estoque['saida'],
                                 color="red",
-                                weight="bold"
+                                weight="bold",
+                                size=14
                             ),
                             padding=5,
                             border_radius=5,
                             bgcolor=ft.colors.with_opacity(0.1, "red")
                         )),
-                        ft.DataCell(ft.Text(estoque['estoque_atual'], weight="bold"))
+                        ft.DataCell(ft.Text(estoque['estoque_atual'], weight="bold", size=14))
                     ])
                 )
         except Exception as e:

@@ -170,8 +170,8 @@ class RelatorioPage(ft.Container):
             'total_vendas': vendas_view,
             'total': total_view,
             'vendas': vendas,
-            'entrada': relatorio.entrada,
-            'saida': relatorio.saida,
+            'entrada': [{'produto': e.produto, 'quantidade': e.quantidade} for e in relatorio.entrada_estoque],
+            'saida': [{'produto': s.produto, 'quantidade': s.quantidade} for s in relatorio.saida_estoque],
         }
         
         res = gerar_relatorio_pdf(relatorio_dict, id)
