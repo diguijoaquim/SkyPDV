@@ -7,6 +7,8 @@ class RelatorioPage(ft.Container):
         super().__init__()
         self.pagex = pagex
         self.expand = True
+        self.padding = 8
+        self.bgcolor = "#F0F8FF"  # Light blue-white background
         self.current_date = datetime.now()
         self.day = self.current_date.strftime("%d-%m-%Y")
         self.banco = isDataBase()
@@ -26,7 +28,20 @@ class RelatorioPage(ft.Container):
             ft.Text(f"Vendas: {self.vendas_view}"),
             ft.Text(f"Total: {self.total_view} MT")
         ])
-        self.vendas = ft.ListView(height=500)
+        self.vendas = ft.DataTable(
+            expand=True,
+            col=12,
+            columns=[
+                ft.DataColumn(ft.Text("Hora")),
+                ft.DataColumn(ft.Text("Caixa")),
+                ft.DataColumn(ft.Text("Cliente")),
+                ft.DataColumn(ft.Text("Items")),
+                ft.DataColumn(ft.Text("Total")),
+                ft.DataColumn(ft.Text("Metodo")),
+                ft.DataColumn(ft.Text("Ações"))
+            ],
+            rows=[]
+        )
         
         # Dialogs
         self.lista = ft.Column()
@@ -218,7 +233,7 @@ class RelatorioPage(ft.Container):
         gerar_pdf(produto_venda_dict)
         
     def see_more(self, e):
-        self.vendas.controls.clear()
+        self.vendas.rows.clear()
         
         rel = getRelatorioUnicoByID(e.control.bgcolor)
         self.total_view = totalVendaMoneyRelatorio(rel.data)
@@ -232,53 +247,36 @@ class RelatorioPage(ft.Container):
         for m in rel.vendas:
             total = totalVendaMoney(m.id)
             
-            self.vendas.controls.append(
-                ft.Card(
-                    content=ft.Container(
-                        padding=10,
-                        content=ft.Column([
-                            ft.Row([
-                                ft.Column([
-                                    ft.Row([
-                                        ft.Text("Hora: "), ft.Text(f"{m.hora}", weight="bold")
-                                    ]),
-                                    ft.Row([
-                                        ft.Text("Caixa: "), ft.Text(f"{m.funcionario}", weight="bold")
-                                    ]),
-                                    ft.Row([
-                                        ft.Text("Cliente: "), ft.Text(f"{m.cliente}", weight="bold")
-                                    ]),
-                                ]),
-                                ft.Column([
-                                    ft.Row([
-                                        ft.Text("Items: "), ft.Text(f"{m.total_item}", weight="bold")
-                                    ]),
-                                    ft.Row([
-                                        ft.Text("Total: "), ft.Text(f"{total}0 MT", weight="bold", color=ft.Colors.RED_500)
-                                    ]),
-                                    ft.Row([
-                                        ft.Text("Metodo: "), ft.Text(f"{m.metodo}", weight="bold")
-                                    ]),
-                                ])
-                            ]),
-                            ft.Row([
-                                ft.ElevatedButton(
-                                    "Imprimir", 
-                                    icon=ft.Icons.PRINT,
-                                    bgcolor=ft.Colors.ORANGE_600, 
-                                    color=ft.Colors.WHITE,
-                                    on_click=self.print_fatura_pdf, 
-                                    key=m.id
-                                ),
-                                ft.TextButton(
-                                    "Ver Produtos", 
-                                    icon=ft.Icons.LIST,
-                                    on_click=self.verMaisProdutos, 
-                                    key=m.id
-                                ),
-                            ], alignment=ft.MainAxisAlignment.CENTER)
-                        ])
-                    )
+            self.vendas.rows.append(
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text(f"{m.hora}", weight="bold")),
+                        ft.DataCell(ft.Text(f"{m.funcionario}", weight="bold")),
+                        ft.DataCell(ft.Text(f"{m.cliente}", weight="bold")),
+                        ft.DataCell(ft.Text(f"{m.total_item}", weight="bold")),
+                        ft.DataCell(ft.Text(f"{total}0 MT", weight="bold", color=ft.Colors.RED_500)),
+                        ft.DataCell(ft.Text(f"{m.metodo}", weight="bold")),
+                        ft.DataCell(
+                            ft.Row(
+                                controls=[
+                                    ft.IconButton(
+                                        icon=ft.Icons.PRINT,
+                                        icon_color=ft.Colors.INDIGO_400,
+                                        on_click=self.print_fatura_pdf,
+                                        key=m.id
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.LIST,
+                                        on_click=self.verMaisProdutos,
+                                        key=m.id,
+                                        icon_color=ft.Colors.INDIGO_400
+
+                                    )
+                                ],
+                                alignment=ft.MainAxisAlignment.CENTER
+                            )
+                        )
+                    ]
                 )
             )
         self.pagex.update()
@@ -294,7 +292,9 @@ class RelatorioPage(ft.Container):
                         ft.Container(
                             content=ft.Card(
                                 content=ft.Container(
-                                    padding=10,        
+                                    padding=8,
+                                    bgcolor="#F0F8FF",
+                                    border_radius=8,
                                     content=ft.Column([
                                         ft.Row([
                                             ft.Text(rel.data, size=18, weight="bold"),
@@ -305,17 +305,20 @@ class RelatorioPage(ft.Container):
                                                 ft.IconButton(
                                                     icon=ft.Icons.MORE,
                                                     on_click=self.see_more,
-                                                    bgcolor=rel.id
+                                                    bgcolor=rel.id,
+                                                    icon_color=ft.Colors.INDIGO_400
                                                 ),
                                                 ft.IconButton(
                                                     icon=ft.Icons.PRINT,
                                                     on_click=self.relatorio_pdf,
-                                                    key=rel.id
+                                                    key=rel.id,
+                                                    icon_color=ft.Colors.INDIGO_400
                                                 ),
                                                 ft.IconButton(
                                                     icon=ft.Icons.DELETE,
                                                     on_click=self.dialog_delete_relatorio,
-                                                    key=rel.id
+                                                    key=rel.id,
+                                                    icon_color=ft.Colors.INDIGO_400
                                                 )
                                             ],
                                             alignment=ft.MainAxisAlignment.CENTER
@@ -330,29 +333,53 @@ class RelatorioPage(ft.Container):
         
     def build(self):
         return ft.Container(
-            padding=10,
+            padding=8,
+            bgcolor="#F0F8FF",  # Light blue-white background
+            border_radius=10,
             content=ft.Column([
                 ft.Row([
                     ft.Text("Relatorios", size=30, weight="bold"),
                     ft.ElevatedButton(
                         "Criar Novo Relatório", 
                         on_click=self.novo_relatorio, 
-                        bgcolor=ft.Colors.GREEN, 
+                        bgcolor=ft.Colors.INDIGO_500, 
                         color=ft.Colors.WHITE
                     )
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                ft.Row([
-                    ft.Container(
-                        width=230,
-                        height=700,
-                        content=self.lista_relatorio
+                ft.ResponsiveRow([
+                    ft.Column(
+                        col=2,
+                        controls=[
+                            ft.Container(
+                                expand=True,
+                                height=700,
+                                content=self.lista_relatorio,
+                                border=ft.border.all(1, ft.Colors.OUTLINE),
+                                border_radius=10,
+                                padding=8
+                            )
+                        ]
                     ),
-                    ft.Column([
-                        self.relatorios,
+                    ft.Column(
+                        col=10,
+                        controls=[
                         ft.Container(
+                            content=self.relatorios,
+                            border=ft.border.all(1, ft.Colors.OUTLINE),
+                            border_radius=10,
+                            padding=8
+                        ),
+                        ft.ResponsiveRow(controls=[
+                            ft.Container(
+                            expand=True,
                             height=600,
-                            content=self.vendas
+                            content=self.vendas,
+                            border=ft.border.all(1, ft.Colors.OUTLINE),
+                            border_radius=10,
+                            padding=8,
+                            col=12
                         )
+                        ],expand=1)
                     ])
                 ])
             ])
