@@ -430,10 +430,48 @@ def getFuncionarios():
     return funcionarios
 
 def excluir_funcionario(id):
-    funcionario=db.query(Usuario).filter_by(id=id).first()
-    db.delete(funcionario)
-    print(funcionario)
-    db.commit()
+    session = Session()
+    try:
+        funcionario = session.query(Usuario).filter_by(id=id).first()
+        session.delete(funcionario)
+        session.commit()
+    except:
+        print("erro ao excluir funcionario")
+    finally:
+        session.close()
+
+def cadastrar_metodo_pagamento(nome, descricao):
+    session = Session()
+    try:
+        metodo = MetodoPagamento(nome=nome, descricao=descricao)
+        session.add(metodo)
+        session.commit()
+    except:
+        print("erro ao cadastrar método de pagamento")
+    finally:
+        session.close()
+
+def excluir_metodo_pagamento(id):
+    session = Session()
+    try:
+        metodo = session.query(MetodoPagamento).filter_by(id=id).first()
+        session.delete(metodo)
+        session.commit()
+    except:
+        print("erro ao excluir método de pagamento")
+    finally:
+        session.close()
+
+def get_metodos_pagamento():
+    session = Session()
+    try:
+        metodos = session.query(MetodoPagamento).all()
+        return metodos
+    except:
+        print("erro ao buscar métodos de pagamento")
+        return []
+    finally:
+        session.close()
 def userUpdate(data):
     user=loged()
     can=False

@@ -123,3 +123,12 @@ class Mesa(Base):
     
     # Relacionamento com ContasAbertas (um para muitos, se necessário)
     contas = relationship("ContasAbertas", back_populates="mesa", cascade="all, delete")
+
+class MetodoPagamento(Base):
+    __tablename__ = "metodos_pagamento"
+    
+    id = Column(Integer, primary_key=True)
+    nome = Column(String(50), nullable=False, unique=True)  # Nome do método (ex: MPesa, Dinheiro)
+    descricao = Column(String(200))  # Descrição opcional do método
+    ativo = Column(Integer, default=1)  # Status do método (1=ativo, 0=inativo)
+    data_criacao = Column(DateTime, default=datetime.now)
