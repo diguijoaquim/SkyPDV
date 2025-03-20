@@ -65,10 +65,10 @@ class RelatorioVenda(Base):
     nome=Column(String(20))
     data=Column(String(22))
     caixa=Column(String(50))
-    vendas=relationship("ProdutoVenda", backref="relatorios",cascade="all, delete")
+    vendas=relationship("ProdutoVenda", backref="relatorios", cascade="all, delete-orphan")
     funcionario=Column(String(40))
-    entrada_estoque = relationship("EntradaEstoque", backref="relatorio",cascade="all, delete")
-    saida_estoque = relationship("SaidaEstoque", backref="relatorio",cascade="all, delete")
+    entrada_estoque = relationship("EntradaEstoque", backref="relatorio", cascade="all, delete-orphan")
+    saida_estoque = relationship("SaidaEstoque", backref="relatorio", cascade="all, delete-orphan")
 
 class ProdutoVenda(Base):
     __tablename__="vendas"

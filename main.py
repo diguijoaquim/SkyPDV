@@ -20,7 +20,7 @@ from pages.estoque import EstoquePage
 from pages.tables import TablesPage
 from pages.money import MoneyPage
 from pages.relatorio import RelatorioPage
-from pages.home import HomePage
+
 
 os.environ["FLET_WS_MAX_MSG_SIZE"] = "8000000"
 
@@ -212,7 +212,7 @@ def main(page: ft.Page):
                                                 content=ft.Column([
                                                     clientes,
                                                     mesa,
-                                                    ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta())
+                                                    ft.CupertinoButton("Abrir Gaveta",bgcolor=ft.Colors.INDIGO_300,on_click=lambda e:abrir_gaveta())
                                                 ])
                                             )
                                         ),
@@ -397,7 +397,7 @@ def main(page: ft.Page):
                                             content=ft.Column([
                                                 clientes,
                                                 mesa,
-                                                ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta())
+                                                ft.CupertinoButton("Abrir Gaveta",bgcolor=ft.Colors.INDIGO_300,on_click=lambda e:abrir_gaveta())
                                             ])
                                         )
                                     ),
@@ -1645,7 +1645,7 @@ def main(page: ft.Page):
                                             content=ft.Column([
                                                 clientes,
                                                 mesa,
-                                                ft.ElevatedButton("Abrir Gaveta",on_click=lambda e:abrir_gaveta())
+                                                ft.CupertinoButton("Abrir Gaveta",bgcolor=ft.Colors.INDIGO_300,on_click=lambda e:abrir_gaveta())
                                             ])
                                         )
                                     ),

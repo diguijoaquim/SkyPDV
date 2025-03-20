@@ -66,6 +66,7 @@ def gerar_pdf(dados):
     os.startfile(os.path.join(pdf_path, nome_pdf))
     print(f"PDF {nome_pdf} gerado e aberto com sucesso.")
 def gerar_relatorio_pdf(dados, relatorio_id):
+    print(dados)
     """
     Esta função gera o relatório diário de vendas e o histórico de estoque.
     """
@@ -133,21 +134,33 @@ def gerar_relatorio_pdf(dados, relatorio_id):
         valor = total_por_metodo.get(metodo, '0')  # Usa '0' se não houver valor
         content.append(Paragraph(f"Pagamento Via {metodo}: {valor} MZN", styles['Normal']))
 
-    # Tabela de histórico de estoque
-    content.append(Paragraph("Histórico de Estoque:", styles['Title']))
-    
-    # Tabela de dados de estoque
-    data_estoque = [['Produto', 'Estoque Inicial', 'Entrada', 'Saída', 'Estoque Atual']]
+    # Tabela de histórico de estoque por categoria
+    content.append(Paragraph("Histórico de Estoque por Categoria:", styles['Title']))
     
     # Obtendo o histórico de estoque
     historico = getHistoricoEstoque(relatorio_id)
     
+    # Agrupando itens por categoria
+    categorias = {}
     for item in historico:
-        data_estoque.append([item['nome'],
-                             str(item['estoque_inicial']),
-                             str(item['entrada']),
-                             str(item['saida']),
-                             str(item['estoque_atual'])])
+        categoria = item.get('categoria', 'Sem Categoria')
+        if categoria not in categorias:
+            categorias[categoria] = []
+        categorias[categoria].append(item)
+    
+    # Criando tabelas para cada categoria
+    for categoria, itens in categorias.items():
+        content.append(Paragraph(f"\n{categoria}", styles['Heading2']))
+        
+        # Tabela de dados de estoque para esta categoria
+        data_estoque = [['Produto', 'Estoque Inicial', 'Entrada', 'Saída', 'Estoque Atual']]
+        
+        for item in itens:
+            data_estoque.append([item['nome'],
+                                 str(item['estoque_inicial']),
+                                 str(item['entrada']),
+                                 str(item['saida']),
+                                 str(item['estoque_atual'])])
 
     # Criando a tabela de histórico de estoque
     table_estoque = Table(data_estoque)
