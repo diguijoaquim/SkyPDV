@@ -362,14 +362,9 @@ def totalVendaMoneyRelatorio(day):
     try:
         relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
         total=0.00
-        # Soma o total das vendas
+        # Soma apenas o total das vendas
         for venda in relatorio.vendas:
             total+=totalVendaMoney(venda.id)
-        # Soma o total das saídas de estoque
-        for saida in relatorio.saida_estoque:
-            produto = db.query(Produto).filter_by(id=saida.produto_id).first()
-            if produto:
-                total += produto.preco * saida.quantidade
         money=f"{total:,.2f}".replace(",", " ").replace(".", ",")
         return money
     except:
