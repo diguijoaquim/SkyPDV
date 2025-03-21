@@ -3,7 +3,7 @@ from controler import *
 from pdv2pdf import *
 
 class RelatorioPage(ft.Container):
-    def __init__(self, pagex):
+    def __init__(self, pagex:ft.Page):
         super().__init__()
         self.pagex = pagex
         self.expand = True
@@ -12,6 +12,7 @@ class RelatorioPage(ft.Container):
         self.current_date = datetime.now()
         self.day = self.current_date.strftime("%d-%m-%Y")
         self.banco = isDataBase()
+        self.height=pagex.window.height
         self.hora = ""
         self.data_view = "00-00-0000"
         self.vendas_view = 0
@@ -21,7 +22,7 @@ class RelatorioPage(ft.Container):
         self.selected_item_id = None
         
         # Componentes da UI
-        self.lista_relatorio = ft.ListView(width=200, height=700)
+        self.lista_relatorio = ft.ListView(width=200)
         self.alert_delete = ft.AlertDialog(title=ft.Text("Aviso"))
         self.relatorios = ft.Column(controls=[
             ft.Text(f"Data: {self.data_view}"),
@@ -334,7 +335,8 @@ class RelatorioPage(ft.Container):
     def build(self):
         return ft.Container(
             padding=8,
-            bgcolor="#F0F8FF",  # Light blue-white background
+            bgcolor="#F0F8FF",
+            expand=1,
             border_radius=10,
             content=ft.Column([
                 ft.Row([
@@ -349,39 +351,37 @@ class RelatorioPage(ft.Container):
                 ft.ResponsiveRow([
                     ft.Column(
                         col=2,
+                        expand=True,
                         controls=[
                             ft.Container(
                                 expand=True,
-                                height=700,
                                 content=self.lista_relatorio,
                                 border=ft.border.all(1, ft.Colors.OUTLINE),
                                 border_radius=10,
                                 padding=8
                             )
-                        ]
+                        ],
                     ),
                     ft.Column(
                         col=10,
+                        expand=True,
                         controls=[
-                        ft.Container(
-                            content=self.relatorios,
-                            border=ft.border.all(1, ft.Colors.OUTLINE),
-                            border_radius=10,
-                            padding=8
-                        ),
-                        ft.ResponsiveRow(controls=[
                             ft.Container(
-                            expand=True,
-                            height=600,
-                            content=self.vendas,
-                            border=ft.border.all(1, ft.Colors.OUTLINE),
-                            border_radius=10,
-                            padding=8,
-                            col=12
-                        )
-                        ],expand=1)
-                    ])
-                ])
+                                content=self.relatorios,
+                                border=ft.border.all(1, ft.Colors.OUTLINE),
+                                border_radius=10,
+                                padding=8
+                            ),
+                            ft.Container(
+                                expand=True,
+                                content=self.vendas,
+                                border=ft.border.all(1, ft.Colors.OUTLINE),
+                                border_radius=10,
+                                padding=8
+                            )
+                        ]
+                    )
+                ], expand=True)
             ])
         )
 

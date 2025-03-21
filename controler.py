@@ -1,6 +1,6 @@
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
-from models.modelos import Base,Produto,Categoria,Usuario,ProdutoVenda,RelatorioVenda,ContasAbertas,ProdutosConta,SaidaEstoque,EntradaEstoque,RelatorioEstoque
+from models.modelos import Base,Produto,Categoria,Usuario,ProdutoVenda,RelatorioVenda,ContasAbertas,ProdutosConta,SaidaEstoque,EntradaEstoque,RelatorioEstoque, MetodoPagamento
 from datetime import datetime
 import re
 import win32print
@@ -440,7 +440,8 @@ def excluir_funcionario(id):
     finally:
         session.close()
 
-def cadastrar_metodo_pagamento(nome, descricao):
+def CadastrarMetodo(nome, descricao):
+    """Cadastra um novo método de pagamento"""
     session = Session()
     try:
         metodo = MetodoPagamento(nome=nome, descricao=descricao)
@@ -451,7 +452,8 @@ def cadastrar_metodo_pagamento(nome, descricao):
     finally:
         session.close()
 
-def excluir_metodo_pagamento(id):
+def excluirMetodoPagamento(id):
+    """Exclui um método de pagamento"""
     session = Session()
     try:
         metodo = session.query(MetodoPagamento).filter_by(id=id).first()
@@ -462,16 +464,17 @@ def excluir_metodo_pagamento(id):
     finally:
         session.close()
 
-def get_metodos_pagamento():
+def getMetodos():
+    """Retorna todos os métodos de pagamento"""
     session = Session()
     try:
-        metodos = session.query(MetodoPagamento).all()
-        return metodos
+        return session.query(MetodoPagamento).all()
     except:
         print("erro ao buscar métodos de pagamento")
         return []
     finally:
         session.close()
+
 def userUpdate(data):
     user=loged()
     can=False

@@ -2,10 +2,11 @@ import flet as ft
 from controler import *
 
 class MoneyPage(ft.Container):
-    def __init__(self, page):
+    def __init__(self, page:ft.Page):
         super().__init__()
         self.page = page
         self.expand = True
+        self.height=page.window.height
         self.content = self.build()
         
     def build(self):

@@ -2,11 +2,12 @@ import flet as ft
 from controler import *
 
 class EstoquePage(ft.Container):
-    def __init__(self, pagex):
+    def __init__(self, pagex:ft.Page):
         super().__init__()
         self.pagex = pagex
         self.expand = True
         self.padding = 8
+        self.height=pagex.window.height
         self.bgcolor = "#F0F8FF"  # Light blue-white background
         self.imagens = os.path.join(os.getenv("LOCALAPPDATA"), ".jpInvest/img")
         self.banco = isDataBase()

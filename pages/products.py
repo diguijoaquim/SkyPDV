@@ -9,12 +9,13 @@ import shutil
 from datetime import datetime
 
 class ProductsPage(ft.Container):
-    def __init__(self, page, update_menu_callback):
+    def __init__(self, page:ft.Page, update_menu_callback):
         super().__init__()
         self.page = page
         self.update_menu = update_menu_callback
         self.expand = True
         self.padding=8
+        self.height=page.window.height
         self.bgcolor = "#F0F8FF"  # Light blue-white background
         self.banco = isDataBase()
         self.current_date = datetime.now()

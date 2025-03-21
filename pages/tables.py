@@ -3,11 +3,12 @@ from controler import db
 from models.modelos import Mesa
 
 class TablesPage(ft.Container):
-    def __init__(self, page):
+    def __init__(self, page:ft.Page):
         super().__init__()
         self.page = page
         self.expand = True
         self.padding = 8
+        self.height=page.window.height
         self.bgcolor = "#F0F8FF"  # Light blue-white background
         self.mesas = []  # Lista para armazenar mesas
         self.error_dialog = ft.AlertDialog(
