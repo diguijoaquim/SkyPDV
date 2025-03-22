@@ -759,6 +759,7 @@ def main(page: ft.Page):
                     ft.DataCell(ft.Text(str(len(conta.produtos)))),
                     ft.DataCell(ft.Row([
                         ft.ElevatedButton("fechar",on_click=fechar_contas,key=conta.id,bgcolor=conta.cliente),
+                        ft.ElevatedButton("Ver", on_click=lambda e, cid=conta.id: imprimir_consumo({'data': contas[cid-1].data, 'cliente': contas[cid-1].cliente, 'produtos': ContaInfo(cid)}), key=conta.id, bgcolor=conta.cliente),
                         ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.INDIGO_400, key=conta.id, on_click=deletar_contas)
                     ])),
                 ],
