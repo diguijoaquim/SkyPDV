@@ -173,7 +173,6 @@ def gerar_relatorio_estoque_pdf(relatorio_id):
     return True
 
 def gerar_relatorio_pdf(dados, relatorio_id):
-    print(dados)
     total_por_metodo = calcular_totais_por_metodo(dados)
     nome_pdf = f"relatorio_{dados['nome'] + str(randint(0,10))}.pdf"
     pdf_path = os.path.expanduser("~/Documents/JP/relatorio")
@@ -241,6 +240,8 @@ def gerar_relatorio_pdf(dados, relatorio_id):
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
+            total_categoria = sum(prod['total'] for prod in produtos)
+            content.append(Paragraph(f"<font color='red'>Total da Categoria ({categoria}): <b>{total_categoria} MZN</b></font>", styles['Normal']))
             content.append(table_categoria)
     else:
         content.append(Paragraph("Nenhuma categoria encontrada.", styles['Normal']))
