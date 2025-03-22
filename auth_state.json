@@ -1,1 +1,1 @@
-{"logged": false}
+{"logged": true, "user": {"id": 1, "nome": "Miguel", "cargo": "admin", "username": "admin", "senha": "4321"}}

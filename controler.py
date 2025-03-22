@@ -715,39 +715,6 @@ def abrir_gaveta(printer_name="XP-80C", comando=b'\x1b\x70\x00\x19\xfa'):
     finally:
         win32print.ClosePrinter(hPrinter)
 
-def imprimir_consumo(dados, printer_name="XP-80C"):
-    try:
-        hPrinter = win32print.OpenPrinter(printer_name)
-        hJob = win32print.StartDocPrinter(hPrinter, 1, ("Consumo", None, "RAW"))
-        win32print.StartPagePrinter(hPrinter)
-
-        esc_pos_commands = b'\x1b\x40'
-        esc_pos_commands += b'\x1b\x45\x01'
-        esc_pos_commands += b'CONSUMO DO CLIENTE!\n'
-        esc_pos_commands += b'\x1b\x45\x00'
-        esc_pos_commands += f'Data: {dados["data"]}\n'.encode('utf-8')
-        esc_pos_commands += f'Cliente: {dados["cliente"]}\n'.encode('utf-8')
-        esc_pos_commands += b'----------------------------------------------\n'
-        esc_pos_commands += b"Qnt   Item   Total\n"
-        esc_pos_commands += b'----------------------------------------------\n'
-        
-        for produto in dados['produtos']:
-            esc_pos_commands += f"{produto['quantidade']}x {produto['nome']} - {produto['total']:.2f} MZN\n".encode('utf-8')
-        
-        esc_pos_commands += b'----------------------------------------------\n\n'
-        esc_pos_commands += b'Obrigado pela preferencia!\n'
-
-        win32print.WritePrinter(hPrinter, esc_pos_commands)
-        win32print.EndPagePrinter(hPrinter)
-        win32print.EndDocPrinter(hPrinter)
-        return True
-    except Exception as e:
-        logging.error(f"Erro ao imprimir consumo: {e}")
-        return False
-    finally:
-        win32print.ClosePrinter(hPrinter)
-
-
 def print_receipt(dados, printer_name="XP-80C"):
     try:
         hPrinter = win32print.OpenPrinter(printer_name)
