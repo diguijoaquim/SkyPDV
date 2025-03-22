@@ -302,7 +302,7 @@ def main(page: ft.Page):
                                                     padding=10,
                                                     content=ft.Column(controls=[total_text])
                                                 )
-                                            )
+                                            ),ft.Container(height=80)
                                         ],expand=True)
                                     )
                                     ])
@@ -496,7 +496,7 @@ def main(page: ft.Page):
                                                         padding=10,
                                                         content=ft.Column(controls=[total_text])
                                                     )
-                                                )
+                                                ),ft.Container(height=80)
                                             ],expand=True)
                                         )
                                 
@@ -1765,8 +1765,9 @@ def main(page: ft.Page):
                                                 content=ft.Container(
                                                     padding=10,
                                                     content=ft.Column(controls=[total_text])
-                                                )
-                                            )
+                                                ),
+                                                
+                                            ),ft.Container(height=80)
                                         ],expand=True)
                                     )
                             
