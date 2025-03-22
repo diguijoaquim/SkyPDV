@@ -1,6 +1,5 @@
 #Criado por Ghost04 - Diqui Joaquim 
 import os
-import shutil
 import flet as ft
 from controler import *
 from models.modelos import ProdutoVenda,Mesa
@@ -8,12 +7,8 @@ from datetime import datetime
 from pdv2pdf import*
 from time import sleep
 from contasToVenda import Venda
-from controler import ContaInfoToVenda
-from sqlalchemy import asc
 from local import *
 import win32print
-
-# Corrigir importações para usar apenas as classes
 from pages.settings import SettingsPage
 from pages.products import ProductsPage
 from pages.estoque import EstoquePage
@@ -23,7 +18,79 @@ from pages.relatorio import RelatorioPage
 
 
 os.environ["FLET_WS_MAX_MSG_SIZE"] = "8000000"
+def abrir_gaveta(printer_name="XP-80C", comando=b'\x1b\x70\x00\x19\xfa'):
+    try:
+        hPrinter = win32print.OpenPrinter(printer_name)
+        hJob = win32print.StartDocPrinter(hPrinter, 1, ("Abrir Gaveta", None, "RAW"))
+        win32print.StartPagePrinter(hPrinter)
 
+        win32print.WritePrinter(hPrinter, comando)
+
+        win32print.EndPagePrinter(hPrinter)
+        win32print.EndDocPrinter(hPrinter)
+        logging.info("Gaveta aberta com sucesso.")
+        return True, "Sucesso", "Gaveta aberta com sucesso."
+    except Exception as e:
+        logging.error(f"Erro ao abrir a gaveta: {e}")
+        return False, "Erro", f"Erro ao abrir a gaveta: {e}"
+    finally:
+        win32print.ClosePrinter(hPrinter)
+
+def print_receipt(dados, printer_name="XP-80C"):
+    print(dados)
+    try:
+        hPrinter = win32print.OpenPrinter(printer_name)
+        hJob = win32print.StartDocPrinter(hPrinter, 1, ("Receipt", None, "RAW"))
+        win32print.StartPagePrinter(hPrinter)
+        
+
+        esc_pos_commands = b'\x1b\x40'  # Inicia o documento (ESC @)
+        esc_pos_commands += b'\x1b\x45\x01'  # Habilita negrito
+        esc_pos_commands += b'JP INVEST, LTD!\n'
+        esc_pos_commands += b'\x1b\x45\x00'  # Desabilita negrito
+        esc_pos_commands += f'Data: {dados['data']}\n'.encode('utf-8')
+        esc_pos_commands += b'----------------------------------------------\n'
+
+        esc_pos_commands += b"Qnt   Nome   Total\n"
+        esc_pos_commands += b'----------------------------------------------\n'
+        for produto in dados['produtos']:
+            esc_pos_commands += f"{produto['quantidade']}x {produto['nome']} - {produto['total']:.2f} MZN\n".encode('utf-8')
+        esc_pos_commands += b'\x1b\x45\x01'  # Habilita negrito
+        esc_pos_commands += f'TOTAL SAO {dados["total"]:.2f} MZN\n'.encode('utf-8')
+        esc_pos_commands += b'\x1b\x45\x00'  # Desabilita negrito
+        esc_pos_commands += b'---\n'
+        esc_pos_commands += f'Subtotal: {dados["subtotal"]:.2f} MZN\n'.encode('utf-8')
+        esc_pos_commands += f'Taxa de IVA: {dados["iva"]:.2f} MZN\n'.encode('utf-8')
+        esc_pos_commands += f'Total : {dados["total"]:.2f} MZN\n'.encode('utf-8')
+        esc_pos_commands += b'------------------------------------------------\n'
+        esc_pos_commands += f"Metode de Pagamento: {dados['metodo']}\n".encode('utf-8')
+        esc_pos_commands += f'Valor Entrege : {dados["entregue"]}\n'.encode('utf-8')
+        if int(dados['troco'])>0:
+            esc_pos_commands += f'Troco : {dados["troco"]:.2f}\n'.encode('utf-8')
+        esc_pos_commands += b'-----------------------------------------------\n'
+        esc_pos_commands += f'Cliente/Mesa: {dados['cliente']}\n'.encode('utf-8')
+        esc_pos_commands += b'-----------------Volte-Sempre-------------------\n'
+        esc_pos_commands += b'pdv lite by bluesprk mz\n'
+
+        esc_pos_commands += b'\x1b\x64\x02'
+        esc_pos_commands += b'\x1d\x56\x41\x00'
+        if dados['metodo'] =='Cash' or dados['metodo']=='Dinheiro':
+            abrir_gaveta()
+
+        
+
+        win32print.WritePrinter(hPrinter, esc_pos_commands)
+
+        win32print.EndPagePrinter(hPrinter)
+        win32print.EndDocPrinter(hPrinter)
+        logging.info("Recibo impresso com sucesso.")
+        
+        return True, "Sucesso", "Recibo impresso com sucesso."
+    except Exception as e:
+        logging.error(f"Erro ao imprimir recibo: {e}")
+        return False, "Erro", f"Erro ao imprimir recibo: {e}"
+    finally:
+        win32print.ClosePrinter(hPrinter)
 selected_file_path = None
 banco=isDataBase()
 current_date = datetime.now()
@@ -188,7 +255,7 @@ def main(page: ft.Page):
                                 ft.Container(
                                     width=260,
                                     padding=10,
-                                    bgcolor=ft.Colors.WHITE,
+                                    bgcolor=ft.Colors.WHITE,height=altura,
                                     content=ft.Column(controls=[
                                         ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
                                         ft.Container(
@@ -212,26 +279,34 @@ def main(page: ft.Page):
                                                 content=ft.Column([
                                                     clientes,
                                                     mesa,
-                                                    ft.CupertinoButton("Abrir Gaveta",bgcolor=ft.Colors.INDIGO_300,on_click=lambda e:abrir_gaveta())
+                                                    ft.Row(
+                                                        controls=[
+                                                            ft.CupertinoButton(
+                                                                "Abrir Gaveta",
+                                                                bgcolor=ft.Colors.INDIGO_400,color=ft.Colors.WHITE,
+                                                                expand=True,
+                                                                on_click=lambda e:abrir_gaveta()
+                                                            )
+                                                        ]
+                                                    )
                                                 ])
                                             )
                                         ),
-                                        ft.Stack(
-                                            width=260,
-                                            height=650,
-                                            controls=[
-                                                lista_vendas,
-                                                ft.Card(
-                                                    width=235,
-                                                    bottom=300,
-                                                    content=ft.Container(
-                                                        padding=10,
-                                                        content=ft.Column(controls=[total_text])
-                                                    )
+                                        ft.Container(
+                                        expand=True,
+                                        content=ft.Column([
+                                            ft.Container(expand=True, content=lista_vendas),
+                                            ft.Card(
+                                                width=235,
+                                                content=ft.Container(
+                                                    padding=10,
+                                                    content=ft.Column(controls=[total_text])
                                                 )
-                                            ]
-                                        )
+                                            )
+                                        ],expand=True)
+                                    )
                                     ])
+
                                 )
                             ]
                         )
@@ -345,82 +420,92 @@ def main(page: ft.Page):
             page.controls.clear()
             page.update()
             body.content=ft.Container(
-                bgcolor="#F0F8FF",  # Light blue-white background
-                content=ft.Column([
-                    ft.Row(
-                        controls=[
-                            ft.Container(
-                                expand=True,
-                                height=altura,
-                                padding=14,
-                                content=ft.Column(controls=[
-                                    ft.Container(
-                                        padding=10,
-                                        border_radius=10,
-                                        bgcolor="white",
-                                        content=ft.Row(
-                                            controls=[
-                                                ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.INDIGO_400),
-                                                search_categoria,
-                                                search
-                                            ],
-                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-                                        )
-                                    ),
-                                    items_menu
-                                ])
-                            ),
-                            ft.Container(
-                                width=260,
-                                padding=10,
-                                bgcolor=ft.Colors.WHITE,
-                                content=ft.Column(controls=[
-                                    ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
-                                    ft.Container(
-                                        padding=10,
-                                        margin=10,
-                                        content=ft.Column(controls=[
-                                            ft.Row(controls=[
-                                                ft.Text("Data:",size=15),
-                                                ft.Text(day,size=15)
-                                            ]),
-                                            horas,
-                                            ft.Row(controls=[
-                                                ft.Text("Caixa:",size=15),
-                                                ft.Text(userLoged().nome,size=15)
-                                            ])
-                                        ])
-                                    ),
-                                    ft.Card(
-                                        content=ft.Container(
+                content=ft.Container(
+                    bgcolor="#F0F8FF",  # Light blue-white background
+                    content=ft.Column([
+                        ft.Row(
+                            controls=[
+                                ft.Container(
+                                    expand=True,
+                                    padding=14,
+                                    content=ft.Column(controls=[
+                                        ft.Container(
                                             padding=10,
-                                            content=ft.Column([
-                                                clientes,
-                                                mesa,
-                                                ft.CupertinoButton("Abrir Gaveta",bgcolor=ft.Colors.INDIGO_300,on_click=lambda e:abrir_gaveta())
-                                            ])
-                                        )
-                                    ),
-                                    ft.Stack(
-                                        width=260,
-                                        height=650,
-                                        controls=[
-                                            lista_vendas,
-                                            ft.Card(
-                                                width=235,
-                                                bottom=300,
-                                                content=ft.Container(
-                                                    padding=10,
-                                                    content=ft.Column(controls=[total_text])
-                                                )
+                                            border_radius=10,
+                                            bgcolor="white",
+                                            content=ft.Row(
+                                                controls=[
+                                                    ft.Text(info['app'],size=30,weight="bold",color=ft.Colors.INDIGO_400),
+                                                    search_categoria,
+                                                    search
+                                                ],
+                                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                                             )
-                                        ]
-                                    )
-                                ])
-                            )
-                        ]
-                    )
-                ])
+                                        ),
+                                        items_menu
+                                    ])
+                                ),
+                                ft.Container(
+                                    width=260,
+                                    padding=10,
+                                    bgcolor=ft.Colors.WHITE,
+                                    height=altura,
+                                    content=ft.Column(controls=[
+                                        ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
+                                        ft.Container(
+                                            padding=10,
+                                            margin=10,
+                                            content=ft.Column(controls=[
+                                                ft.Row(controls=[
+                                                    ft.Text("Data:",size=15),
+                                                    ft.Text(day,size=15)
+                                                ]),
+                                                horas,
+                                                ft.Row(controls=[
+                                                    ft.Text("Caixa:",size=15),
+                                                    ft.Text(userLoged().nome,size=15)
+                                                ])
+                                            ])
+                                        ),
+                                        ft.Card(
+                                            content=ft.Container(
+                                                padding=10,
+                                                content=ft.Column([
+                                                    clientes,
+                                                    mesa,
+                                                    ft.Row(
+                                                    controls=[
+                                                        ft.CupertinoButton(
+                                                            "Abrir Gaveta",
+                                                            bgcolor=ft.Colors.INDIGO_400,color=ft.Colors.WHITE,
+                                                            expand=True,
+                                                            on_click=lambda e:abrir_gaveta()
+                                                        )
+                                                    ]
+                                                )
+                                                ])
+                                            )
+                                        ),
+                                        ft.Container(
+                                            expand=True,
+                                            content=ft.Column([
+                                                ft.Container(expand=True, content=lista_vendas),
+                                                ft.Card(
+                                                    width=235,
+                                                    content=ft.Container(
+                                                        padding=10,
+                                                        content=ft.Column(controls=[total_text])
+                                                    )
+                                                )
+                                            ],expand=True)
+                                        )
+                                
+                                    ])
+                                )
+                            ]
+                        )
+                    ])
+                )
             )
         
             page.add(body_config) 
@@ -590,7 +675,7 @@ def main(page: ft.Page):
     carrinho_show=ft.AlertDialog(title=ft.Text("Produtos escolhidos"))
 
     def show_carrinho(e):
-        carrinho_show.content=ft.Container(width=600,height=400,padding=10,content=lista_vendas)
+        carrinho_show.content=ft.Container(width=600,expand=True,padding=10,content=lista_vendas)
         page.open(carrinho_show)
     def fechar_contas(e):
         global ultima_venda,carrinho_s,total_valor
@@ -621,12 +706,14 @@ def main(page: ft.Page):
         ]))
         lista_vendas.controls.clear()
         for i, item in enumerate(carrinho_s):
+            imagem_path = os.path.join(imagens, item['image']) if item['image'] else None
+            is_img = os.path.exists(imagem_path) if imagem_path else False
             lista_vendas.controls.append(ft.Container(
                 padding=8,
                 height=80,
                 content=ft.Card(content=ft.Row(
                     controls=[
-                        ft.Image(src=f'{imagens}/{item['image']}', width=40, height=40, border_radius=8),
+                        ft.Image(src=f'{imagens}/{item['image']}' if is_img else 'imagem.png', width=40, height=40, border_radius=8),
                         ft.Text(item['nome']),
                         ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
                         ft.Text(f"Qtd: {item['quantidade']}"),  ft.PopupMenuButton(items=[
@@ -708,6 +795,7 @@ def main(page: ft.Page):
 
     clientes = ft.Dropdown(
         label="Escolher o cliente",
+        width=300,
         options=contas,
         on_change=mudar  # Usa on_change para capturar a seleção
     )
@@ -903,11 +991,11 @@ def main(page: ft.Page):
             controls=[header,
                       ft.Row([card],
                              alignment=ft.MainAxisAlignment.CENTER),
-                            ft.Row([ft.CupertinoButton(text="Fechar",bgcolor=ft.Colors.INDIGO_400,on_click=lambda e:page.window.close())],
+                            ft.Row([ft.CupertinoButton(text="Fechar",bgcolor=ft.Colors.INDIGO_400,color='white',on_click=lambda e:page.window.close())],
                         alignment=ft.MainAxisAlignment.CENTER)],
                         expand=1,
                         alignment=ft.MainAxisAlignment.CENTER
-                    ),bgcolor='#fefce8',expand=True)
+                    ),bgcolor='#F0F8FF',expand=True)
 
     def novo_relatorio(e):
         relatorio_alert.open = False
@@ -940,18 +1028,22 @@ def main(page: ft.Page):
     def ch(e):
         global ultima_venda,total_valor
         ultima_venda['metodo']=e.control.value
-        if e.control.value !="Cash":
+        if e.control.value =="Cash":
+            valor_pagar.disabled=False
+        else:
             valor_pagar.value=total_valor
             valor_pagar.disabled=True
-        else:
-            valor_pagar.disabled=False
-
-    pagamento=ft.Dropdown(label="metodo de pagamento",
-                    options=[ft.dropdown.Option("Cash"),
-                             ft.dropdown.Option("MPesa"),
-                             ft.dropdown.Option("POS BCI"),
-                             ft.dropdown.Option("E-mola")
-                             ],on_change=ch)
+        page.update()
+    pymentslist=getMetodos()
+    pagamento = ft.Dropdown(
+        label="Método de Pagamento",
+        width=300,
+        options=[
+            ft.dropdown.Option(metodo.nome) for metodo in pymentslist
+        ],
+        value="Dinheiro",
+        expand=True,
+        on_change=ch)
 
     dialogo=ft.AlertDialog(title=ft.Text("PDV LITE"),
                            content=ft.Text("So pode criar um Relatorios por dia"),
@@ -970,7 +1062,6 @@ def main(page: ft.Page):
     def guardar(e=''):
         pagamento.value="Cash"
         global ultima_venda
-        print(ultima_venda)
         valor_pagar.value=''
         page.open(pagament)
     def imprimir_fatuta(e):
@@ -1448,23 +1539,28 @@ def main(page: ft.Page):
         page.update()
         if e.control.value=="Todos os Produtos":
             for i in verProdutos():
-           
+                imagem_path = os.path.join(imagens, i.image) if i.image else None
+                is_img = os.path.exists(imagem_path) if imagem_path else False
+                
                 items_menu.controls.append(
                                 ft.Card(width=130,height=180,
                                     content=ft.Container(padding=7,
                                         content=ft.Column([
-                                            ft.Image(f'{imagens}/{i.image}',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
+                                            ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
                                             ft.Text(i.titulo,weight="bold",size=13),
                                             ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
                                         ])
                                         ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
         else:
             for i in pesquisaProduto(e.control.value):
+                imagem_path = os.path.join(imagens, i.image) if i.image else None
+                is_img = os.path.exists(imagem_path) if imagem_path else False
+                
                 items_menu.controls.append(
                                 ft.Card(width=130,height=180,
                                     content=ft.Container(padding=7,
                                         content=ft.Column([
-                                            ft.Image(f'{imagens}/{i.image}',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
+                                            ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
                                             ft.Text(i.titulo,weight="bold",size=13),
                                             ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
                                         ])
@@ -1494,17 +1590,17 @@ def main(page: ft.Page):
                                     ])
                                     ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
         page.update()
-    lista_vendas=ft.ListView(height=380)
+    lista_vendas=ft.ListView(expand=True, auto_scroll=True)
 
     # items_menu=ft.GridView(max_extent=200,spacing=10,height=600,child_aspect_ratio=0.8)
     items_menu=ft.Row(wrap=True,scroll=True,height=altura-110)
     search_categoria = ft.Dropdown(
         label="Categoria",
-        width=230,
+        width=300,
         options=[ft.dropdown.Option(categoria.nome) for categoria in categoria_lista],
         on_change=submit
     )
-    search=ft.TextField(label="Procurar Produto",border_radius=12,on_change=submit,width=200)
+    search=ft.TextField(label="Procurar Produto",border_radius=12,on_change=submit,width=300)
     
     update_menu()
     
@@ -1526,7 +1622,7 @@ def main(page: ft.Page):
         mesa.options = mesas_options
         page.update()
     
-    mesa = ft.Dropdown(label="Mesa", options=[ft.dropdown.Option("Sem mesa")])
+    mesa = ft.Dropdown(label="Mesa", width=300, options=[ft.dropdown.Option("Sem mesa")])
     # Carrega as mesas do banco de dados
     update_mesas_dropdown()
 
@@ -1599,7 +1695,6 @@ def main(page: ft.Page):
                         controls=[
                             ft.Container(
                                 expand=True,
-                                height=altura,
                                 padding=14,
                                 content=ft.Column(controls=[
                                     ft.Container(
@@ -1622,6 +1717,7 @@ def main(page: ft.Page):
                                 width=260,
                                 padding=10,
                                 bgcolor=ft.Colors.WHITE,
+                                height=altura,
                                 content=ft.Column(controls=[
                                     ft.Text("Resumo da Veda:",size=20,weight="bold",color=ft.Colors.INDIGO_400),
                                     ft.Container(
@@ -1645,25 +1741,33 @@ def main(page: ft.Page):
                                             content=ft.Column([
                                                 clientes,
                                                 mesa,
-                                                ft.CupertinoButton("Abrir Gaveta",bgcolor=ft.Colors.INDIGO_300,on_click=lambda e:abrir_gaveta())
+                                                ft.Row(
+                                                controls=[
+                                                    ft.CupertinoButton(
+                                                        "Abrir Gaveta",
+                                                        bgcolor=ft.Colors.INDIGO_400,color=ft.Colors.WHITE,
+                                                        expand=True,
+                                                        on_click=lambda e:abrir_gaveta()
+                                                    )
+                                                ]
+                                            )
                                             ])
                                         )
                                     ),
-                                    ft.Stack(
-                                        width=260,
-                                        height=650,
-                                        controls=[
-                                            lista_vendas,
+                                    ft.Container(
+                                        expand=True,
+                                        content=ft.Column([
+                                            ft.Container(expand=True, content=lista_vendas),
                                             ft.Card(
                                                 width=235,
-                                                bottom=300,
                                                 content=ft.Container(
                                                     padding=10,
                                                     content=ft.Column(controls=[total_text])
                                                 )
                                             )
-                                        ]
+                                        ],expand=True)
                                     )
+                            
                                 ])
                             )
                         ]

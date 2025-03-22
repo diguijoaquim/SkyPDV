@@ -654,6 +654,7 @@ def getHistoricoEstoque(relatorio_id):
             "entrada": entrada,
             "saida": saida,
             "estoque_atual": produto.estoque,
+            "categoria": produto.categoria
         })
 
     return historico

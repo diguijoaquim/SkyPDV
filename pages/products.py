@@ -50,8 +50,8 @@ class ProductsPage(ft.Container):
                 ft.Row([
                     ft.CupertinoButton(
                         "Adicionar Nova Categoria",
-                        icon=ft.icons.ADD,
-                        bgcolor=ft.colors.INDIGO_400,
+                        icon=ft.Icons.ADD,
+                        bgcolor=ft.Colors.INDIGO_400,
                         color="white",
                         on_click=self.abrir_add_categoria_dialog
                     )
@@ -71,7 +71,7 @@ class ProductsPage(ft.Container):
                 ft.TextButton("Cancelar", on_click=lambda e: self.page.close(self.dlg_add_categoria)),
                 ft.CupertinoButton(
                     text="Salvar",
-                    bgcolor=ft.colors.INDIGO_400,
+                    bgcolor=ft.Colors.INDIGO_400,
                     on_click=self.salvar_categoria
                 )
             ]
@@ -86,7 +86,7 @@ class ProductsPage(ft.Container):
         self.barcode = ft.TextField(label="barcode Scanneado")
         self.estoque = ft.TextField(label="estoque", multiline=True, width=400)
         self.categoria = ft.Dropdown(
-                label="Categoria",
+                label="Categoria",width=300,
                 options=[ft.dropdown.Option(categoria.nome) for categoria in self.categoria_lista]
             )
             
@@ -149,7 +149,7 @@ class ProductsPage(ft.Container):
         # Inicializa os componentes que serão usados no build
         self.search = ft.TextField(
             label="Pesquisar", 
-            on_submit=self.submit2,
+            on_change=self.submit2,
             prefix_icon=ft.Icons.SEARCH,
             suffix_icon=ft.Icons.CLEAR
         )
@@ -372,9 +372,9 @@ class ProductsPage(ft.Container):
             is_img = os.path.exists(imagem_path) if imagem_path else False
             
             img = ft.Image(
-                src=f"file://{imagem_path}" if is_img else "https://cdn-icons-png.flaticon.com/512/1554/1554591.png",
+                src=f"{imagem_path}" if is_img else "assets/imagem.png",
                 width=100,
-                height=100,
+                height=45,
                 fit=ft.ImageFit.CONTAIN
             )
             
@@ -422,7 +422,7 @@ class ProductsPage(ft.Container):
                 is_img = os.path.exists(imagem_path) if imagem_path else False
                 
                 img = ft.Image(
-                    src=f"file://{imagem_path}" if is_img else "https://cdn-icons-png.flaticon.com/512/1554/1554591.png",
+                    src=f"{imagem_path}" if is_img else "imagem.png",
                     width=100,
                     height=100,
                     fit=ft.ImageFit.CONTAIN
@@ -491,6 +491,13 @@ class ProductsPage(ft.Container):
                             color="white",
                             on_click=self.abrir_add_categoria
                         ),
+                        ft.CupertinoButton(
+                            "Imprimir Lista",
+                            icon=ft.Icons.PRINT,
+                            bgcolor=ft.Colors.INDIGO_400,
+                            color="white",
+                            on_click=self.imprimir_todos
+                        )
                     ]),
                     ft.Container(content=self.produtos_list,expand=1)
                 ],
@@ -507,14 +514,14 @@ class ProductsPage(ft.Container):
                     ft.DataCell(
                         ft.Row([
                             ft.IconButton(
-                                icon=ft.icons.EDIT,
-                                icon_color=ft.colors.INDIGO_400,
+                                icon=ft.Icons.EDIT,
+                                icon_color=ft.Colors.INDIGO_400,
                                 tooltip="Editar",
                                 on_click=lambda e, cat=categoria: self.editar_categoria(cat)
                             ),
                             ft.IconButton(
-                                icon=ft.icons.DELETE,
-                                icon_color=ft.colors.RED,
+                                icon=ft.Icons.DELETE,
+                                icon_color=ft.Colors.RED,
                                 tooltip="Excluir",
                                 on_click=lambda e, cat=categoria: self.excluir_categoria(cat)
                             )
@@ -559,7 +566,7 @@ class ProductsPage(ft.Container):
             content=ft.Text(f"Deseja realmente excluir a categoria {categoria.nome}?"),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self.page.close(dlg_confirmar)),
-                ft.ElevatedButton("Excluir", on_click=confirmar_exclusao, color=ft.colors.RED)
+                ft.ElevatedButton("Excluir", on_click=confirmar_exclusao, color=ft.Colors.RED)
             ]
         )
         self.page.open(dlg_confirmar)

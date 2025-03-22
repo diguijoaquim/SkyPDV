@@ -1,0 +1,5 @@
+flet
+reportlab
+pywin32
+sqlalchemy
+pymysql

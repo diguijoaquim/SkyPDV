@@ -374,7 +374,7 @@ class RelatorioPage(ft.Container):
                             ),
                             ft.Container(
                                 expand=True,
-                                content=self.vendas,
+                                content=ft.Column([ft.ResponsiveRow([self.vendas])],scroll="always"),
                                 border=ft.border.all(1, ft.Colors.OUTLINE),
                                 border_radius=10,
                                 padding=8

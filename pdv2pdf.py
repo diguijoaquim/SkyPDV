@@ -125,6 +125,53 @@ from collections import defaultdict
 import os
 from random import randint
 
+def gerar_relatorio_estoque_pdf(relatorio_id):
+    nome_pdf = f"relatorio_estoque_{str(randint(0, 100))}.pdf"
+    pdf_path = os.path.expanduser("~/Documents/JP/relatorio")
+    os.makedirs(pdf_path, exist_ok=True)
+    
+    doc = SimpleDocTemplate(os.path.join(pdf_path, nome_pdf), pagesize=A4)
+    styles = getSampleStyleSheet()
+    content = []
+
+    # Cabeçalho
+    content.append(Paragraph("Relatório de Estoque", styles['Title']))
+    content.append(Paragraph(f"Data: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}", styles['Normal']))
+    
+    # Tabela de Histórico de Estoque
+    historico = getHistoricoEstoque(relatorio_id)
+    estoque_categorias = defaultdict(list)
+    for item in historico:
+        estoque_categorias[item.get('categoria', 'Sem Categoria')].append(item)
+
+    for categoria, itens in estoque_categorias.items():
+        content.append(Paragraph(f"\nCategoria: {categoria}", styles['Heading2']))
+        data_estoque = [['Produto', 'Estoque Inicial', 'Entrada', 'Saída', 'Estoque Atual']]
+        for item in itens:
+            data_estoque.append([
+                item['nome'],
+                str(item['estoque_inicial']),
+                str(item['entrada']),
+                str(item['saida']),
+                str(item['estoque_atual'])
+            ])
+        table_estoque = Table(data_estoque)
+        table_estoque.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        content.append(table_estoque)
+
+    # Gerar o PDF
+    doc.build(content)
+    os.startfile(os.path.join(pdf_path, nome_pdf))
+    return True
+
 def gerar_relatorio_pdf(dados, relatorio_id):
     print(dados)
     total_por_metodo = calcular_totais_por_metodo(dados)

@@ -211,7 +211,7 @@ class EstoquePage(ft.Container):
                             ),
                             padding=5,
                             border_radius=5,
-                            bgcolor=ft.colors.with_opacity(0.1, "green")
+                            bgcolor=ft.Colors.with_opacity(0.1, "green")
                         )),
                         ft.DataCell(ft.Container(
                             content=ft.Text(
@@ -222,7 +222,7 @@ class EstoquePage(ft.Container):
                             ),
                             padding=5,
                             border_radius=5,
-                            bgcolor=ft.colors.with_opacity(0.1, "red")
+                            bgcolor=ft.Colors.with_opacity(0.1, "red")
                         )),
                         ft.DataCell(ft.Text(estoque['estoque_atual'], weight="bold", size=14))
                     ])
@@ -230,6 +230,19 @@ class EstoquePage(ft.Container):
         except Exception as e:
             print(f"Erro ao carregar histórico: {e}")
     
+    def gerar_relatorio(self, e):
+        if not self.selected_relatorio_id:
+            aviso_dialog = ft.AlertDialog(
+                title=ft.Text("Aviso"),
+                content=ft.Text("Selecione um relatório primeiro."),
+                actions=[ft.TextButton("OK", on_click=lambda e: self.pagex.close(aviso_dialog))]
+            )
+            self.pagex.open(aviso_dialog)
+            return
+            
+        from pdv2pdf import gerar_relatorio_estoque_pdf
+        gerar_relatorio_estoque_pdf(self.selected_relatorio_id)
+
     def build(self):
         return ft.Column([
             ft.Container(
@@ -251,6 +264,12 @@ class EstoquePage(ft.Container):
                                 bgcolor=ft.Colors.INDIGO_400,
                                 color="white",
                                 on_click=self.Saidas
+                            ),
+                            ft.CupertinoButton(
+                                text="Gerar PDF", 
+                                bgcolor=ft.Colors.INDIGO_400,
+                                color="white",
+                                on_click=self.gerar_relatorio
                             ),
                         ], spacing=10),
                         self.relatorio_dropdown

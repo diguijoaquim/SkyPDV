@@ -24,7 +24,7 @@ class SettingsPage(ft.Container):
         self.dialog_add_method = ft.AlertDialog(title=ft.Text("Adicionar metodo de pagamento"),content=ft.Column(controls=[
             ft.TextField(label='Nome do metodo'),
             ft.TextField(label='Descrição'),
-            ft.ElevatedButton("Adicionar", on_click=self.add_method, bgcolor=ft.Colors.INDIGO_400)
+            ft.ElevatedButton("Adicionar", on_click=self.add_method, color='white',bgcolor=ft.Colors.INDIGO_400)
         ]))
         self.name = ft.TextField(label='Nome do funcionario')
         self.username_input = ft.TextField(label='username')
@@ -37,7 +37,7 @@ class SettingsPage(ft.Container):
             content=ft.Column(controls=[
                 self.method_name_field,
                 self.method_description_field,
-                ft.ElevatedButton("Adicionar", on_click=self.add_method, bgcolor=ft.Colors.INDIGO_400)
+                ft.ElevatedButton("Adicionar", on_click=self.add_method,color='white', bgcolor=ft.Colors.INDIGO_400)
             ])
         )
         self.metodos = []
@@ -53,7 +53,7 @@ class SettingsPage(ft.Container):
                                     self.name,
                                     self.username_input,
                                     self.senha,
-                                    ft.ElevatedButton("Cadastar Funcionario", on_click=self.cadastrar, bgcolor=ft.Colors.INDIGO_400)
+                                    ft.CupertinoButton("Cadastar Funcionario",color='white', on_click=self.cadastrar, bgcolor=ft.Colors.INDIGO_400)
                                 ]))
         # Inicializa a página configurando o content com o resultado do método build
         self.content = self.build()
@@ -193,28 +193,28 @@ class SettingsPage(ft.Container):
                     content=ft.Column([
                         ft.ElevatedButton(
                             "Gerenciar Usuários",
-                            icon=ft.icons.PEOPLE,
+                            icon=ft.Icons.PEOPLE,
                             bgcolor=ft.Colors.INDIGO_400,
                             color="white",
                             on_click=self.manage_users
                         ),
                         ft.ElevatedButton(
                             "Configurações do Sistema",
-                            icon=ft.icons.SETTINGS,
+                            icon=ft.Icons.SETTINGS,
                             bgcolor=ft.Colors.INDIGO_400,
                             color="white",
                             on_click=self.system_settings
                         ),
                         ft.ElevatedButton(
                             "Backup e Restauração",
-                            icon=ft.icons.BACKUP,
+                            icon=ft.Icons.BACKUP,
                             bgcolor=ft.Colors.INDIGO_400,
                             color="white",
                             on_click=self.backup_restore
                         ),
                         ft.ElevatedButton(
                             "Gerenciar Métodos de Pagamento",
-                            icon=ft.icons.CREDIT_CARD,
+                            icon=ft.Icons.CREDIT_CARD,
                             bgcolor=ft.Colors.INDIGO_400,
                             color="white",
                             on_click=self.manage_metodos
@@ -234,7 +234,7 @@ class SettingsPage(ft.Container):
                                     content=ft.Column([
                                         ft.Row([
                                             ft.Text("Lista de Funcionários", size=20, weight="bold", color=ft.Colors.INDIGO_400),
-                                            ft.ElevatedButton("Adicionar Funcionário", on_click=self.addUser, bgcolor=ft.Colors.INDIGO_400)
+                                            ft.ElevatedButton("Adicionar Funcionário",color='white', on_click=self.addUser, bgcolor=ft.Colors.INDIGO_400)
                                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                                         self.tabela
                                     ])
@@ -247,7 +247,7 @@ class SettingsPage(ft.Container):
                                     content=ft.Column([
                                         ft.Row([
                                             ft.Text("Métodos de Pagamento", size=20, weight="bold", color=ft.Colors.INDIGO_400),
-                                            ft.ElevatedButton("Adicionar Método", on_click=self.manage_metodos, bgcolor=ft.Colors.INDIGO_400)
+                                            ft.ElevatedButton("Adicionar Método",color='white', on_click=self.manage_metodos, bgcolor=ft.Colors.INDIGO_400)
                                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                                         self.tabela_metodos
                                     ])

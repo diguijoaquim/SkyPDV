@@ -125,19 +125,19 @@ class TablesPage(ft.Container):
                         ),
                         padding=5,
                         border_radius=5,
-                        bgcolor=ft.colors.with_opacity(0.1, status_color)
+                        bgcolor=ft.Colors.with_opacity(0.1, status_color)
                     )),
                     ft.DataCell(ft.Row(
                         [
                             ft.IconButton(
-                                icon=ft.icons.EDIT,
-                                icon_color=ft.colors.BLUE,
+                                icon=ft.Icons.EDIT,
+                                icon_color=ft.Colors.BLUE,
                                 tooltip="Editar",
                                 on_click=lambda e, mesa_id=mesa.id: self.editar_mesa(mesa_id)
                             ),
                             ft.IconButton(
-                                icon=ft.icons.DELETE,
-                                icon_color=ft.colors.RED,
+                                icon=ft.Icons.DELETE,
+                                icon_color=ft.Colors.RED,
                                 tooltip="Excluir",
                                 on_click=lambda e, mesa_id=mesa.id: self.confirmar_exclusao(mesa_id)
                             )
@@ -167,8 +167,8 @@ class TablesPage(ft.Container):
                 ft.TextButton("Cancelar", on_click=lambda e: self.page.close(dialog)),
                 ft.ElevatedButton(
                     "Salvar", 
-                    bgcolor=ft.colors.INDIGO_400,
-                    color=ft.colors.WHITE,
+                    bgcolor=ft.Colors.INDIGO_400,
+                    color=ft.Colors.WHITE,
                     on_click=lambda e: self.salvar_mesa(dialog)
                 )
             ],
@@ -182,6 +182,13 @@ class TablesPage(ft.Container):
         # Verifica se os campos de entrada não estão vazios
         if not self.numero_input.value or not self.capacidade_input.value:
             self.show_error("Por favor, preencha todos os campos.")
+            return
+            
+        # Verifica se já existe uma mesa com o mesmo número
+        numero = int(self.numero_input.value)
+        mesa_existente = db.query(Mesa).filter_by(numero=numero).first()
+        if mesa_existente:
+            self.show_error(f"Já existe uma mesa com o número {numero}")
             return
 
         try:
@@ -226,8 +233,8 @@ class TablesPage(ft.Container):
                 ft.TextButton("Cancelar", on_click=lambda e: self.page.close(dialog)),
                 ft.ElevatedButton(
                     "Atualizar", 
-                    bgcolor=ft.colors.INDIGO_400,
-                    color=ft.colors.WHITE,
+                    bgcolor=ft.Colors.INDIGO_400,
+                    color=ft.Colors.WHITE,
                     on_click=lambda e: self.atualizar_mesa(dialog, mesa_id)
                 )
             ],
@@ -271,8 +278,8 @@ class TablesPage(ft.Container):
                 ft.TextButton("Cancelar", on_click=lambda e: self.page.close(dialog)),
                 ft.ElevatedButton(
                     "Excluir", 
-                    bgcolor=ft.colors.RED,
-                    color=ft.colors.WHITE,
+                    bgcolor=ft.Colors.RED,
+                    color=ft.Colors.WHITE,
                     on_click=lambda e: self.excluir_mesa(dialog, mesa_id)
                 )
             ],

@@ -114,14 +114,14 @@ class MoneyPage(ft.Container):
                 border_radius=10,
                 content=ft.Column(
                     [
-                        ft.Text(titulo, size=18, weight="bold", color=ft.colors.WHITE),
+                        ft.Text(titulo, size=18, weight="bold", color=ft.Colors.WHITE),
                         ft.Container(height=5),
-                        ft.Text(valor, size=24, weight="bold", color=ft.colors.WHITE),
+                        ft.Text(valor, size=24, weight="bold", color=ft.Colors.WHITE),
                         ft.Container(height=5),
-                        ft.Text(subtitulo, size=14, color=ft.colors.WHITE),
+                        ft.Text(subtitulo, size=14, color=ft.Colors.WHITE),
                         ft.Container(
                             alignment=ft.alignment.bottom_right,
-                            content=ft.Icon(ft.icons.EQUALIZER, color=ft.colors.with_opacity(0.3, ft.colors.WHITE), size=30)
+                            content=ft.Icon(ft.Icons.EQUALIZER, color=ft.Colors.with_opacity(0.3, ft.Colors.WHITE), size=30)
                         )
                     ],
                     spacing=5,

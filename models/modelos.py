@@ -20,7 +20,7 @@ class Produto(Base):
     preco = Column(Float)
     barcode=Column(String(30))
     estoque = Column(Integer)
-    image=Column(String(100))
+    image=Column(String(100),default="imagem.png")
     quantidade_venda=Column(Integer,nullable=True)
     categoria_id=Column(Integer, ForeignKey("categorias.id"))
     categoria=Column(String(50))
