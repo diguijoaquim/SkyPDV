@@ -340,7 +340,7 @@ class RelatorioPage(ft.Container):
             border_radius=10,
             content=ft.Column([
                 ft.Row([
-                    ft.Text("Relatorios", size=30, weight="bold"),
+                    ft.Text("Relatorios", size=30, weight="bold",color=ft.Colors.INDIGO_500),
                     ft.ElevatedButton(
                         "Criar Novo Relatório", 
                         on_click=self.novo_relatorio, 

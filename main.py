@@ -1579,12 +1579,14 @@ def main(page: ft.Page):
         items_menu.controls.clear()
         page.update()
         for i in verProdutos():
+            imagem_path = os.path.join(imagens, i.image) if i.image else None
+            is_img = os.path.exists(imagem_path) if imagem_path else False
            
             items_menu.controls.append(
                             ft.Card(width=130,height=180,
                                 content=ft.Container(padding=7,
                                     content=ft.Column([
-                                        ft.Image(f'{imagens}/{i.image}',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
+                                        ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
                                         ft.Text(i.titulo,weight="bold",size=13),
                                         ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
                                     ])
