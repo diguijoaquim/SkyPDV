@@ -679,75 +679,77 @@ def main(page: ft.Page):
         page.open(carrinho_show)
     def fechar_contas(e):
         global ultima_venda,carrinho_s,total_valor
-        id = e.control.key
-        nome_clinte=e.control.bgcolor
-        clientes.value=nome_clinte
-        venda = Venda(ContaInfoToVenda(id), f"{day} - {hora}", f"{hora}",nome_clinte,"Dinheiro")
-        ultima_venda=venda.pedidos_para_venda()
-        carrinho_s=ultima_venda['produtos']
-        total_text.controls.clear()
-        total = getTotalMoneyCart(carrinho_s)  # Exemplo: 1000 MZN
-        total_valor=total
+        with get_db() as db:
+            id = e.control.key
+            nome_clinte=e.control.bgcolor
+            clientes.value=nome_clinte
+            venda = Venda(ContaInfoToVenda(id), f"{day} - {hora}", f"{hora}",nome_clinte,"Dinheiro")
+            ultima_venda=venda.pedidos_para_venda()
+            carrinho_s=ultima_venda['produtos']
+            total_text.controls.clear()
+            total = getTotalMoneyCart(carrinho_s)  # Exemplo: 1000 MZN
+            total_valor=total
 
-        iva = total * 0.16  # 16% do total
-        subtotal = total - iva  # Subtotal é o total menos o IVA
-        total_text.controls.append(ft.Column(controls=[
-            ft.Text(f"Subtotal: {subtotal} MT", size=17),
-            ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
-            ft.Text(f"Total: {total_valor} MT", size=17),
-            ft.Row(controls=[
-                ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
-                ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
-                ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
-                ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
-                
-                
-            ])
-        ]))
-        lista_vendas.controls.clear()
-        for i, item in enumerate(carrinho_s):
-            imagem_path = os.path.join(imagens, item['image']) if item['image'] else None
-            is_img = os.path.exists(imagem_path) if imagem_path else False
-            lista_vendas.controls.append(ft.Container(
-                padding=8,
-                height=80,
-                content=ft.Card(content=ft.Row(
-                    controls=[
-                        ft.Image(src=f'{imagens}/{item['image']}' if is_img else 'imagem.png', width=40, height=40, border_radius=8),
-                        ft.Text(item['nome']),
-                        ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
-                        ft.Text(f"Qtd: {item['quantidade']}"),  ft.PopupMenuButton(items=[
-                            ft.PopupMenuItem(text="diminuir",on_click=decrement_item, icon=item['id']),
-                            ft.PopupMenuItem(text="Deletar",on_click=delete_item, icon=i),
+            iva = total * 0.16  # 16% do total
+            subtotal = total - iva  # Subtotal é o total menos o IVA
+            total_text.controls.append(ft.Column(controls=[
+                ft.Text(f"Subtotal: {subtotal} MT", size=17),
+                ft.Text(f"IVA: {round(iva,2)} MT", size=17), 
+                ft.Text(f"Total: {total_valor} MT", size=17),
+                ft.Row(controls=[
+                    ft.IconButton(icon=ft.Icons.DELETE, on_click=limpar,icon_color=ft.Colors.INDIGO_400),
+                    ft.IconButton(icon=ft.Icons.LIST, on_click=addcontas,),
+                    ft.IconButton(icon=ft.Icons.CHECK, on_click=guardar),
+                    ft.IconButton(icon=ft.Icons.VISIBILITY, on_click=show_carrinho),
+                    
+                    
+                ])
+            ]))
+            lista_vendas.controls.clear()
+            for i, item in enumerate(carrinho_s):
+                imagem_path = os.path.join(imagens, item['image']) if item['image'] else None
+                is_img = os.path.exists(imagem_path) if imagem_path else False
+                lista_vendas.controls.append(ft.Container(
+                    padding=8,
+                    height=80,
+                    content=ft.Card(content=ft.Row(
+                        controls=[
+                            ft.Image(src=f'{imagens}/{item['image']}' if is_img else 'imagem.png', width=40, height=40, border_radius=8),
+                            ft.Text(item['nome']),
+                            ft.Row(controls=[ft.Text(f"{item['preco']} MT", size=8)]),
+                            ft.Text(f"Qtd: {item['quantidade']}"),  ft.PopupMenuButton(items=[
+                                ft.PopupMenuItem(text="diminuir",on_click=decrement_item, icon=item['id']),
+                                ft.PopupMenuItem(text="Deletar",on_click=delete_item, icon=i),
 
-                        ])
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                            ])
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    ))
                 ))
-            ))
-        page.update()
-        guardar()
-        #Eliminar a Conta
-        user=db.query(ContasAbertas).filter_by(id=id).first()
-        db.delete(user)
-        db.commit()
-        update_contas_list()
-        contas.append(ft.dropdown.Option("Sem Nome"))
-        contas.clear()
-        for conta in getContas():
-            contas.append(ft.dropdown.Option(conta.cliente))
-        page.update()
+            page.update()
+            guardar()
+            #Eliminar a Conta
+            user=db.query(ContasAbertas).filter_by(id=id).first()
+            db.delete(user)
+            db.commit()
+            update_contas_list()
+            contas.append(ft.dropdown.Option("Sem Nome"))
+            contas.clear()
+            for conta in getContas():
+                contas.append(ft.dropdown.Option(conta.cliente))
+            page.update()
 
     def deletar_contas(e):
-        id = e.control.key
-        conta = db.query(ContasAbertas).filter_by(id=id).first()
-        if conta:
-            db.delete(conta)
-            db.commit()
-            print(f"Conta deletada: {conta.cliente}")
-        
-        # Atualizando a lista de contas
-        update_contas_list()
+        with get_db() as db:
+            id = e.control.key
+            conta = db.query(ContasAbertas).filter_by(id=id).first()
+            if conta:
+                db.delete(conta)
+                db.commit()
+                print(f"Conta deletada: {conta.cliente}")
+            
+            # Atualizando a lista de contas
+            update_contas_list()
     def update_contas_list():
         # Limpar as linhas da tabela antes de adicionar novas
         tabela_contas.rows.clear()
@@ -769,24 +771,25 @@ def main(page: ft.Page):
         page.update()
 
     def mudar(e=""):
-        user = db.query(ContasAbertas).filter_by(cliente=clientes.value).first()
-        cliente_row.content=ft.Text()
-        cliente_info.content=ft.Text()
-        if user:
-            userInfo=ContaInfo(user.id)
-            cliente_info.content=ft.Column([
-                ft.Row([
-                    ft.Text("Total de produtos:"),ft.Text(userInfo['total_produtos'],size=16,weight="bold")
-                ]),
-                ft.Row([
-                    ft.Text("Total de pedidos:"),ft.Text(userInfo['total_pedidos'],size=16,weight="bold")
-                ]),
-                ft.Row([
-                    ft.Text("Total em dinheiro:"),ft.Text(userInfo['total_dinheiro'],size=16,weight="bold")
+        with get_db() as db:
+            user = db.query(ContasAbertas).filter_by(cliente=clientes.value).first()
+            cliente_row.content=ft.Text()
+            cliente_info.content=ft.Text()
+            if user:
+                userInfo=ContaInfo(user.id)
+                cliente_info.content=ft.Column([
+                    ft.Row([
+                        ft.Text("Total de produtos:"),ft.Text(userInfo['total_produtos'],size=16,weight="bold")
+                    ]),
+                    ft.Row([
+                        ft.Text("Total de pedidos:"),ft.Text(userInfo['total_pedidos'],size=16,weight="bold")
+                    ]),
+                    ft.Row([
+                        ft.Text("Total em dinheiro:"),ft.Text(userInfo['total_dinheiro'],size=16,weight="bold")
+                    ])
                 ])
-            ])
-        nome_do_cliente.value = f"Cliente/Mesa: {clientes.value}"
-        page.update()
+            nome_do_cliente.value = f"Cliente/Mesa: {clientes.value}"
+            page.update()
 
     clientes=ft.Dropdown()
     contas=[]
@@ -831,17 +834,18 @@ def main(page: ft.Page):
     
 
     def adicionarItem(e):
-        try:
-            ms=db.query(ContasAbertas).filter_by(cliente=clientes.value).first()
-            if len(carrinho_s)>=1:
-                addItemConta(carrinho_s,ms.id)
-                mudar()
-                update_contas_list()
-            else:
-                cliente_row.content=ft.Text("O cliente nao tem nenhum pedido",color=ft.Colors.INDIGO_400,weight="bold")        
-        except:
-            cliente_row.content=ft.Text("Crie um cliente primeiro",color=ft.Colors.INDIGO_400,weight="bold")
-        page.update()
+        with get_db() as db:
+            try:
+                ms=db.query(ContasAbertas).filter_by(cliente=clientes.value).first()
+                if len(carrinho_s)>=1:
+                    addItemConta(carrinho_s,ms.id)
+                    mudar()
+                    update_contas_list()
+                else:
+                    cliente_row.content=ft.Text("O cliente nao tem nenhum pedido",color=ft.Colors.INDIGO_400,weight="bold")        
+            except:
+                cliente_row.content=ft.Text("Crie um cliente primeiro",color=ft.Colors.INDIGO_400,weight="bold")
+            page.update()
     tabela_contas=ft.DataTable(
             columns=[
                 ft.DataColumn(ft.Text("Nome")),
@@ -999,21 +1003,22 @@ def main(page: ft.Page):
                     ),bgcolor='#F0F8FF',expand=True)
 
     def novo_relatorio(e):
-        relatorio_alert.open = False
-        page.update()
-        rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{day}").count()
-        if rlt > 0:
-            page.open(dialogo)
-        else:
-            estoque_hoje = db.query(Produto).all()
-            entrada = []
-            
-            for i in estoque_hoje:
-                entrada.append({
-                    "nome": i.titulo,
-                    "estoque": i.estoque
-                })        
-            addRelatorio(day, entrada)
+        with get_db() as db:
+            relatorio_alert.open = False
+            page.update()
+            rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{day}").count()
+            if rlt > 0:
+                page.open(dialogo)
+            else:
+                estoque_hoje = db.query(Produto).all()
+                entrada = []
+                
+                for i in estoque_hoje:
+                    entrada.append({
+                        "nome": i.titulo,
+                        "estoque": i.estoque
+                    })        
+                addRelatorio(day, entrada)
             
     def fecha(e):
         dialogo.open=False
@@ -1539,34 +1544,42 @@ def main(page: ft.Page):
         items_menu.controls.clear()
         page.update()
         if e.control.value=="Todos os Produtos":
-            for i in verProdutos():
-                imagem_path = os.path.join(imagens, i.image) if i.image else None
-                is_img = os.path.exists(imagem_path) if imagem_path else False
-                
-                items_menu.controls.append(
-                                ft.Card(width=130,height=180,
-                                    content=ft.Container(padding=7,
-                                        content=ft.Column([
-                                            ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
-                                            ft.Text(i.titulo,weight="bold",size=13),
-                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
-                                        ])
-                                        ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
+            try:
+                for i in verProdutos():
+                    imagem_path = os.path.join(imagens, i.image) if i.image else None
+                    is_img = os.path.exists(imagem_path) if imagem_path else False
+                    
+                    items_menu.controls.append(
+                                    ft.Card(width=130,height=180,
+                                        content=ft.Container(padding=7,
+                                            content=ft.Column([
+                                                ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
+                                                ft.Text(i.titulo,weight="bold",size=13),
+                                                ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
+                                            ])
+                                            ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
+                page.update()
+            except:
+                pass
         else:
-            for i in pesquisaProduto(e.control.value):
-                imagem_path = os.path.join(imagens, i.image) if i.image else None
-                is_img = os.path.exists(imagem_path) if imagem_path else False
-                
-                items_menu.controls.append(
-                                ft.Card(width=130,height=180,
-                                    content=ft.Container(padding=7,
-                                        content=ft.Column([
-                                            ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
-                                            ft.Text(i.titulo,weight="bold",size=13),
-                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
-                                        ])
-                                        ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
-        page.update()
+            try:
+                for i in pesquisaProduto(e.control.value):
+                    imagem_path = os.path.join(imagens, i.image) if i.image else None
+                    is_img = os.path.exists(imagem_path) if imagem_path else False
+                    
+                    items_menu.controls.append(
+                                    ft.Card(width=130,height=180,
+                                        content=ft.Container(padding=7,
+                                            content=ft.Column([
+                                                ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
+                                                ft.Text(i.titulo,weight="bold",size=13),
+                                                ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
+                                            ])
+                                            ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
+                page.update()
+            except:
+                pass
+        
     
     def hovercard(e):
         if e.data == "true":  # mouse entra
@@ -1577,22 +1590,26 @@ def main(page: ft.Page):
             e.control.bgcolor=''
         page.update()
     def update_menu():
-        items_menu.controls.clear()
-        page.update()
-        for i in verProdutos():
-            imagem_path = os.path.join(imagens, i.image) if i.image else None
-            is_img = os.path.exists(imagem_path) if imagem_path else False
-           
-            items_menu.controls.append(
-                            ft.Card(width=130,height=180,
-                                content=ft.Container(padding=7,
-                                    content=ft.Column([
-                                        ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
-                                        ft.Text(i.titulo,weight="bold",size=13),
-                                        ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
-                                    ])
-                                    ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
-        page.update()
+        try:
+            items_menu.controls.clear()
+            for i in verProdutos():
+                imagem_path = os.path.join(imagens, i.image) if i.image else None
+                is_img = os.path.exists(imagem_path) if imagem_path else False
+            
+                items_menu.controls.append(
+                                ft.Card(width=130,height=180,
+                                    content=ft.Container(padding=7,
+                                        content=ft.Column([
+                                            ft.Image(f'{imagens}/{i.image}' if is_img else 'imagem.png',border_radius=10,height=80,fit=ft.ImageFit.COVER,width=page.window.width / 3),
+                                            ft.Text(i.titulo,weight="bold",size=13),
+                                            ft.Text(f'{i.preco} MZN',weight="bold",size=13,color=ft.Colors.INDIGO_400)
+                                        ])
+                                        ,on_hover=hovercard,on_click=adicionar_Carinho,on_long_press=dl_more_carinho,key=f'{i.id}')),) 
+            page.update()
+        except:
+            pass
+        
+        
     lista_vendas=ft.ListView(expand=True, auto_scroll=True)
 
     # items_menu=ft.GridView(max_extent=200,spacing=10,height=600,child_aspect_ratio=0.8)
@@ -1608,22 +1625,24 @@ def main(page: ft.Page):
     update_menu()
     
     def update_mesas_dropdown():
-        # Busca todas as mesas do banco de dados
-        mesas_db = db.query(Mesa).order_by(Mesa.numero).all()
-        
-        # Cria as opções para o dropdown com indicadores visuais de status
-        mesas_options = []
-        for m in mesas_db:
-            # Determina a cor baseada no status
-            status_color = "🟢" if m.status == "livre" else "🔴" if m.status == "ocupada" else "🟠"
-            mesas_options.append(ft.dropdown.Option(f"{status_color} Mesa {m.numero} ({m.status})"))
-        
-        # Adiciona a opção "Sem mesa" no início
-        mesas_options.insert(0, ft.dropdown.Option("Sem mesa"))
-        
-        # Atualiza as opções do dropdown
-        mesa.options = mesas_options
-        page.update()
+        # ... existing code ...
+        with get_db() as db:
+            # Busca todas as mesas do banco de dados
+            mesas_db = db.query(Mesa).order_by(Mesa.numero).all()
+            
+            # Cria as opções para o dropdown com indicadores visuais de status
+            mesas_options = []
+            for m in mesas_db:
+                # Determina a cor baseada no status
+                status_color = "🟢" if m.status == "livre" else "🔴" if m.status == "ocupada" else "🟠"
+                mesas_options.append(ft.dropdown.Option(f"{status_color} Mesa {m.numero} ({m.status})"))
+            
+            # Adiciona a opção "Sem mesa" no início
+            mesas_options.insert(0, ft.dropdown.Option("Sem mesa"))
+            
+            # Atualiza as opções do dropdown
+            mesa.options = mesas_options
+            page.update()
     
     mesa = ft.Dropdown(label="Mesa", width=300, options=[ft.dropdown.Option("Sem mesa")])
     # Carrega as mesas do banco de dados

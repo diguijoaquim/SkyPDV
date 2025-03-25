@@ -114,6 +114,7 @@ class EstoquePage(ft.Container):
         self.pagex.close(self.no_relatorio_dialog)
     
     def criar_novo_relatorio(self, e):
+        db=get_db()
         """Cria um novo relatório para o dia atual"""
         self.pagex.close(self.no_relatorio_dialog)
         

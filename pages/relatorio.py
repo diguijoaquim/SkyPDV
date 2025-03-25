@@ -70,14 +70,15 @@ class RelatorioPage(ft.Container):
         self.did_mount()
 
     def deletar_relatorio(self, e):
-        id = e.control.key
-        relatorio = db.query(RelatorioVenda).filter_by(id=id).first()
-        db.delete(relatorio)
-        db.commit()
+        with get_db() as db:
+            id = e.control.key
+            relatorio = db.query(RelatorioVenda).filter_by(id=id).first()
+            db.delete(relatorio)
+            db.commit()
 
-        self.pagex.close(self.alert_delete)
-        # Atualiza a lista após a exclusão
-        self.did_mount()
+            self.pagex.close(self.alert_delete)
+            # Atualiza a lista após a exclusão
+            self.did_mount()
         
     def dialog_delete_relatorio(self, e):
         if(get_logged_user()['cargo']) == 'admin':
@@ -100,80 +101,86 @@ class RelatorioPage(ft.Container):
         self.pagex.update()
 
     def fechar_relatorio(self, e):
-        # Tente recuperar o relatório do dia especificado
-        relatorio = db.query(RelatorioVenda).filter_by(nome=f"relatorio{self.day}").first()
+        with get_db() as db:
+            # Tente recuperar o relatório do dia especificado
+            relatorio = db.query(RelatorioVenda).filter_by(nome=f"relatorio{self.day}").first()
 
-        if relatorio:
-            # Recupera o estoque atual de todos os produtos
-            estoque_atual = db.query(Produto).all()
-            estoque_dicionario = {produto.titulo: produto.estoque for produto in estoque_atual}
+            if relatorio:
+                # Recupera o estoque atual de todos os produtos
+                estoque_atual = db.query(Produto).all()
+                estoque_dicionario = {produto.titulo: produto.estoque for produto in estoque_atual}
 
-            # Certifique-se de que `entrada` seja uma lista de dicionários
-            if isinstance(relatorio.entrada, str):
-                try:
-                    entrada = json.loads(relatorio.entrada)
-                except json.JSONDecodeError:
-                    print("Erro ao decodificar a entrada do relatório.")
-                    return
+                # Certifique-se de que `entrada` seja uma lista de dicionários
+                if isinstance(relatorio.entrada, str):
+                    try:
+                        entrada = json.loads(relatorio.entrada)
+                    except json.JSONDecodeError:
+                        print("Erro ao decodificar a entrada do relatório.")
+                        return
+                else:
+                    entrada = relatorio.entrada  # Caso já seja uma lista
+
+                # Inicialize a lista de saídas
+                saida = []
+
+                for produto in entrada:
+                    nome = produto["nome"]
+                    estoque_inicial = produto["estoque"]
+                    estoque_final = estoque_dicionario.get(nome, 0)
+                    quantidade_saida = calcular_quantidade_saida(estoque_inicial, estoque_final)
+                    if quantidade_saida > 0:
+                        saida.append({
+                            "nome": nome,
+                            "quantidade_saida": quantidade_saida
+                        })
+
+                # Atualize o relatório e salve no banco de dados
+                relatorio.saida = json.dumps(saida)  # Converter para JSON antes de armazenar
+                db.commit()
+
+                print("Relatório fechado com sucesso. Saídas registradas.")
             else:
-                entrada = relatorio.entrada  # Caso já seja uma lista
-
-            # Inicialize a lista de saídas
-            saida = []
-
-            for produto in entrada:
-                nome = produto["nome"]
-                estoque_inicial = produto["estoque"]
-                estoque_final = estoque_dicionario.get(nome, 0)
-                quantidade_saida = calcular_quantidade_saida(estoque_inicial, estoque_final)
-                if quantidade_saida > 0:
-                    saida.append({
-                        "nome": nome,
-                        "quantidade_saida": quantidade_saida
-                    })
-
-            # Atualize o relatório e salve no banco de dados
-            relatorio.saida = json.dumps(saida)  # Converter para JSON antes de armazenar
-            db.commit()
-
-            print("Relatório fechado com sucesso. Saídas registradas.")
-        else:
-            print("Relatório não encontrado para o dia especificado.")
+                print("Relatório não encontrado para o dia especificado.")
             
     def relatorio_pdf(self, e):
         id = e.control.key
-        relatorio = getRelatorioUnicoByID(id)
-        total_view = totalVendaMoneyRelatorio(relatorio.data)
-        vendas_view = len(relatorio.vendas)
-        vendas = []
-        
-        for i in relatorio.vendas:
-            # Calcular o total dos produtos para cada venda
-            produto_total = sum(float(p['total']) for p in i.produtos)
+        with get_db() as db:
+            relatorio = db.query(RelatorioVenda).get(id)
+            total_view = totalVendaMoneyRelatorio(relatorio.data)
+            vendas_view = len(relatorio.vendas)
+            vendas = []
             
-            vendas.append({
-                'id': i.id,
-                'data': i.data,
-                'hora': i.hora,
-                'total_item': i.total_item,
-                'cliente': f"{i.cliente}",
-                'caixa': f"{i.funcionario}",
-                'metodo': i.metodo,
-                'produtos': i.produtos,
-                'total': str(totalVendaMoney(i.id)),
-                'produto_total': str(produto_total),  # Adiciona o total dos produtos
-                'quantidade': str(i.total_item)  # Adiciona a quantidade total de itens
-            })
+            for i in relatorio.vendas:
+                # Calcular o total dos produtos para cada venda
+                produto_total = sum(float(p['total']) for p in i.produtos)
+                
+                vendas.append({
+                    'id': i.id,
+                    'data': i.data,
+                    'hora': i.hora,
+                    'total_item': i.total_item,
+                    'cliente': f"{i.cliente}",
+                    'caixa': f"{i.funcionario}",
+                    'metodo': i.metodo,
+                    'produtos': i.produtos,
+                    'total': str(totalVendaMoney(i.id)),
+                    'produto_total': str(produto_total),
+                    'quantidade': str(i.total_item)
+                })
             
-        relatorio_dict = {
-            'nome': relatorio.nome,
-            'data': relatorio.data,
-            'total_vendas': vendas_view,
-            'total': total_view,
-            'vendas': vendas,
-            'entrada': [{'produto': e.produto, 'quantidade': e.quantidade} for e in relatorio.entrada_estoque],
-            'saida': [{'produto': s.produto, 'quantidade': s.quantidade} for s in relatorio.saida_estoque],
-        }
+            # Criar dicionário do relatório dentro do contexto da sessão
+            entrada = [{'produto': e.produto, 'quantidade': e.quantidade} for e in relatorio.entrada_estoque]
+            saida = [{'produto': s.produto, 'quantidade': s.quantidade} for s in relatorio.saida_estoque]
+            
+            relatorio_dict = {
+                'nome': relatorio.nome,
+                'data': relatorio.data,
+                'total_vendas': vendas_view,
+                'total': total_view,
+                'vendas': vendas,
+                'entrada': entrada,
+                'saida': saida
+            }
         
         res = gerar_relatorio_pdf(relatorio_dict, id)
         if res:
@@ -186,42 +193,42 @@ class RelatorioPage(ft.Container):
             ))
             
     def novo_relatorio(self, e):
-        self.relatorio_alert.open = False
-        self.pagex.update()
-        rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{self.day}").count()
-        
-        if rlt > 0:
-            self.pagex.open(self.dialogo)
-        else:
-            estoque_hoje = db.query(Produto).all()
-            entrada = []
+        with get_db() as db:
+            self.relatorio_alert.open = False
+            self.pagex.update()
+            rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{self.day}").count()
             
-            for i in estoque_hoje:
-                entrada.append({
-                    "nome": i.titulo,
-                    "estoque": i.estoque
-                })
-            
-            addRelatorio(self.day, entrada)
+            if rlt > 0:
+                self.pagex.open(self.dialogo)
+            else:
+                estoque_hoje = db.query(Produto).all()
+                entrada = []
+                
+                for i in estoque_hoje:
+                    entrada.append({
+                        "nome": i.titulo,
+                        "estoque": i.estoque
+                    })
+                
+                addRelatorio(self.day, entrada)
             
     def verMaisProdutos(self, e):
-        self.lista.controls.clear()
-        venda = db.query(ProdutoVenda).filter_by(id=e.control.key).first()
+        with get_db() as db:
+            self.lista.controls.clear()
+            venda = db.query(ProdutoVenda).filter_by(id=e.control.key).first()
 
-        for p in venda.produtos:
-            
-            #print(p)
-            self.lista.controls.append(
-                ft.Row(
-                    controls=[
-                        ft.Text(f"Nome: "), ft.Text(p['nome'], weight="bold"),
-                        ft.Text(f"Preco: "), ft.Text(f"{p['preco']}0 MT"),
-                        ft.Text(f"Quantidade: "), ft.Text(p['quantidade'], weight="bold"),
-                        ft.Text(f"Total: "), ft.Text(f"{p['total']}0 MT", weight="bold")
-                    ]
+            for p in venda.produtos:
+                self.lista.controls.append(
+                    ft.Row(
+                        controls=[
+                            ft.Text(f"Nome: "), ft.Text(p['nome'], weight="bold"),
+                            ft.Text(f"Preco: "), ft.Text(f"{p['preco']}0 MT"),
+                            ft.Text(f"Quantidade: "), ft.Text(p['quantidade'], weight="bold"),
+                            ft.Text(f"Total: "), ft.Text(f"{p['total']}0 MT", weight="bold")
+                        ]
+                    )
                 )
-            )
-        self.pagex.open(self.dal)
+            self.pagex.open(self.dal)
         
     def print_fatura_pdf(self, e):
         id = e.control.key
@@ -236,11 +243,12 @@ class RelatorioPage(ft.Container):
     def see_more(self, e):
         self.vendas.rows.clear()
         
-        rel = getRelatorioUnicoByID(e.control.bgcolor)
-        self.total_view = totalVendaMoneyRelatorio(rel.data)
-        self.vendas_view = len(rel.vendas)
-        self.data_view = rel.data
-        self.relatorios.controls.clear()
+        with get_db() as db:
+            rel = db.query(RelatorioVenda).filter_by(id=e.control.bgcolor).first()
+            self.total_view = totalVendaMoneyRelatorio(rel.data)
+            self.vendas_view = len(rel.vendas)
+            self.data_view = rel.data
+            self.relatorios.controls.clear()
         self.relatorios.controls.append(ft.Text(f"Data: {self.data_view}", size=18, weight="bold"))
         self.relatorios.controls.append(ft.Text(f"Vendas: {self.vendas_view}", size=16))
         self.relatorios.controls.append(ft.Text(f"Total: {self.total_view} MT", size=16, color=ft.Colors.RED_500))
@@ -286,49 +294,50 @@ class RelatorioPage(ft.Container):
         self.lista_relatorio.controls.clear()
         if is_logged():
             try:
-                relatorios = db.query(RelatorioVenda).order_by(RelatorioVenda.id.desc()).all()
-                for rel in relatorios:
-                    total = totalVendaMoneyRelatorio(rel.data)
-                    self.lista_relatorio.controls.append(
-                        ft.Container(
-                            content=ft.Card(
-                                content=ft.Container(
-                                    padding=8,
-                                    bgcolor="#F0F8FF",
-                                    border_radius=8,
-                                    content=ft.Column([
-                                        ft.Row([
-                                            ft.Text(rel.data, size=18, weight="bold"),
-                                        ], alignment=ft.MainAxisAlignment.CENTER),
-                                        ft.Text(f"Total: {total} MT", weight="bold", size=17),
-                                        ft.Row(
-                                            controls=[
-                                                ft.IconButton(
-                                                    icon=ft.Icons.MORE,
-                                                    on_click=self.see_more,
-                                                    bgcolor=rel.id,
-                                                    icon_color=ft.Colors.INDIGO_400
-                                                ),
-                                                ft.IconButton(
-                                                    icon=ft.Icons.PRINT,
-                                                    on_click=self.relatorio_pdf,
-                                                    key=rel.id,
-                                                    icon_color=ft.Colors.INDIGO_400
-                                                ),
-                                                ft.IconButton(
-                                                    icon=ft.Icons.DELETE,
-                                                    on_click=self.dialog_delete_relatorio,
-                                                    key=rel.id,
-                                                    icon_color=ft.Colors.INDIGO_400
-                                                )
-                                            ],
-                                            alignment=ft.MainAxisAlignment.CENTER
-                                        ),
-                                    ], alignment=ft.MainAxisAlignment.CENTER)
+                with get_db() as db:
+                    relatorios = db.query(RelatorioVenda).order_by(RelatorioVenda.id.desc()).all()
+                    for rel in relatorios:
+                        total = totalVendaMoneyRelatorio(rel.data)
+                        self.lista_relatorio.controls.append(
+                            ft.Container(
+                                content=ft.Card(
+                                    content=ft.Container(
+                                        padding=8,
+                                        bgcolor="#F0F8FF",
+                                        border_radius=8,
+                                        content=ft.Column([
+                                            ft.Row([
+                                                ft.Text(rel.data, size=18, weight="bold"),
+                                            ], alignment=ft.MainAxisAlignment.CENTER),
+                                            ft.Text(f"Total: {total} MT", weight="bold", size=17),
+                                            ft.Row(
+                                                controls=[
+                                                    ft.IconButton(
+                                                        icon=ft.Icons.MORE,
+                                                        on_click=self.see_more,
+                                                        bgcolor=rel.id,
+                                                        icon_color=ft.Colors.INDIGO_400
+                                                    ),
+                                                    ft.IconButton(
+                                                        icon=ft.Icons.PRINT,
+                                                        on_click=self.relatorio_pdf,
+                                                        key=rel.id,
+                                                        icon_color=ft.Colors.INDIGO_400
+                                                    ),
+                                                    ft.IconButton(
+                                                        icon=ft.Icons.DELETE,
+                                                        on_click=self.dialog_delete_relatorio,
+                                                        key=rel.id,
+                                                        icon_color=ft.Colors.INDIGO_400
+                                                    )
+                                                ],
+                                                alignment=ft.MainAxisAlignment.CENTER
+                                            ),
+                                        ], alignment=ft.MainAxisAlignment.CENTER)
+                                    )
                                 )
                             )
                         )
-                    )
             except Exception as e:
                 print(f"Erro ao carregar relatórios: {e}")
         

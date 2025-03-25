@@ -3,3 +3,4 @@ reportlab
 pywin32
 sqlalchemy
 pymysql
+pyinstaller

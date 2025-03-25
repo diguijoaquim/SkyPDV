@@ -1,5 +1,5 @@
 import flet as ft
-from controler import db
+from controler import get_db
 from models.modelos import Mesa
 
 class TablesPage(ft.Container):
@@ -105,8 +105,9 @@ class TablesPage(ft.Container):
         )
 
     def update_mesas(self):
-        self.mesas_table.rows = []
-        mesas = db.query(Mesa).all()
+        with get_db() as db:
+            self.mesas_table.rows = []
+            mesas = db.query(Mesa).all()
         
         for mesa in mesas:
             # Define a cor do status
@@ -184,26 +185,26 @@ class TablesPage(ft.Container):
             self.show_error("Por favor, preencha todos os campos.")
             return
             
-        # Verifica se já existe uma mesa com o mesmo número
-        numero = int(self.numero_input.value)
-        mesa_existente = db.query(Mesa).filter_by(numero=numero).first()
-        if mesa_existente:
-            self.show_error(f"Já existe uma mesa com o número {numero}")
-            return
-
         try:
             # Tenta converter os valores para inteiros
             numero = int(self.numero_input.value)
             capacidade = int(self.capacidade_input.value)
             
-            # Cria uma nova mesa e salva no banco de dados
-            nova_mesa = Mesa(
-                numero=numero, 
-                capacidade=capacidade, 
-                status=self.status_dropdown.value
-            )
-            db.add(nova_mesa)
-            db.commit()
+            with get_db() as db:
+                # Verifica se já existe uma mesa com o mesmo número
+                mesa_existente = db.query(Mesa).filter_by(numero=numero).first()
+                if mesa_existente:
+                    self.show_error(f"Já existe uma mesa com o número {numero}")
+                    return
+        
+                # Cria uma nova mesa e salva no banco de dados
+                nova_mesa = Mesa(
+                    numero=numero, 
+                    capacidade=capacidade, 
+                    status=self.status_dropdown.value
+                )
+                db.add(nova_mesa)
+                db.commit()
             
             # Fecha o diálogo e atualiza a tabela
             self.page.close(dialog)
@@ -213,6 +214,7 @@ class TablesPage(ft.Container):
             self.show_error("Por favor, insira valores numéricos válidos.")
 
     def editar_mesa(self, mesa_id):
+        db=get_db()
         # Busca a mesa no banco de dados
         mesa = db.query(Mesa).filter_by(id=mesa_id).first()
         
@@ -244,23 +246,24 @@ class TablesPage(ft.Container):
         # Abre o diálogo
         self.page.open(dialog)
 
-    def atualizar_mesa(self, dialog, mesa_id):
+    def atualizar_mesa(self, mesa_id, dialog):
         # Verifica se os campos de entrada não estão vazios
         if not self.numero_input.value or not self.capacidade_input.value:
             self.show_error("Por favor, preencha todos os campos.")
             return
-
+    
         try:
             # Tenta converter os valores para inteiros
             numero = int(self.numero_input.value)
             capacidade = int(self.capacidade_input.value)
             
-            # Atualiza a mesa no banco de dados
-            mesa = db.query(Mesa).filter_by(id=mesa_id).first()
-            mesa.numero = numero
-            mesa.capacidade = capacidade
-            mesa.status = self.status_dropdown.value
-            db.commit()
+            with get_db() as db:
+                # Atualiza a mesa no banco de dados
+                mesa = db.query(Mesa).filter_by(id=mesa_id).first()
+                mesa.numero = numero
+                mesa.capacidade = capacidade
+                mesa.status = self.status_dropdown.value
+                db.commit()
             
             # Fecha o diálogo e atualiza a tabela
             self.page.close(dialog)
@@ -290,6 +293,7 @@ class TablesPage(ft.Container):
         self.page.open(dialog)
 
     def excluir_mesa(self, dialog, mesa_id):
+        db=get_db()
         # Exclui a mesa do banco de dados
         mesa = db.query(Mesa).filter_by(id=mesa_id).first()
         db.delete(mesa)

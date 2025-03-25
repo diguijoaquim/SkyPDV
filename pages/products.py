@@ -206,8 +206,9 @@ class ProductsPage(ft.Container):
         self.page.update()
     
     def imprimir_todos(self, e):
-        produtos = db.query(Produto).order_by(asc(Produto.titulo)).all()
-        gerar_pdf_produtos(produtos)
+        with get_db() as db:
+            produtos = db.query(Produto).order_by(asc(Produto.titulo)).all()
+            gerar_pdf_produtos(produtos)
     
     def atualizar(self, id):
         if(get_logged_user()['cargo'])=='admin':
@@ -288,22 +289,23 @@ class ProductsPage(ft.Container):
         self.page.update()
     
     def novo_relatorio(self, e):
-        self.relatorio_alert.open = False
-        self.page.update()
-        rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{self.day}").count()
-        
-        if rlt > 0:
-            self.page.open(self.dialogo)
-        else:
-            estoque_hoje = db.query(Produto).all()
-            entrada = []
+        with get_db() as db:
+            self.relatorio_alert.open = False
+            self.page.update()
+            rlt = db.query(RelatorioVenda).filter_by(nome=f"relatorio{self.day}").count()
             
-            for i in estoque_hoje:
-                entrada.append({
-                    "nome": i.titulo,
-                    "estoque": i.estoque
-                })
-            addRelatorio(self.day, entrada)
+            if rlt > 0:
+                self.page.open(self.dialogo)
+            else:
+                estoque_hoje = db.query(Produto).all()
+                entrada = []
+                
+                for i in estoque_hoje:
+                    entrada.append({
+                        "nome": i.titulo,
+                        "estoque": i.estoque
+                    })
+                addRelatorio(self.day, entrada)
     
     def add(self, e):
         filename = None
@@ -356,17 +358,31 @@ class ProductsPage(ft.Container):
         self.update_produtos()
     
     def open_estoque(self, id):
-        self.fornecer_dialog.data = id
-        self.page.open(self.fornecer_dialog)
+        if(get_logged_user()['cargo'])=='admin':
+            self.fornecer_dialog.data = id
+            self.page.open(self.fornecer_dialog)
+        else:
+            self.page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
+                ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_600),
+                ft.Text("Nao tens permicao para fornecer produtos", weight="bold")
+            ])))
     
     def eliminarProoduto(self, id):
-        deletarProduto(id)
+        if(get_logged_user()['cargo'])=='admin':
+            deletarProduto(id)
+            self.update_produtos()
+        else:
+            self.page.open(ft.AlertDialog(title=ft.Text("Aviso"),content=ft.Row([
+                ft.Icon(ft.Icons.INFO,color=ft.Colors.RED_600),
+                ft.Text("Nao tens permicao para excluir produtos", weight="bold")
+            ])))
         self.update_produtos()
         self.update_menu()
     
     def update_produtos(self):
-        self.produtos_table.rows = []
-        produtos = db.query(Produto).all()
+        with get_db() as db:
+            self.produtos_table.rows = []
+            produtos = db.query(Produto).all()
         for produto in produtos:
             imagem_path = os.path.join(self.imagens, produto.image) if produto.image else None
             is_img = os.path.exists(imagem_path) if imagem_path else False
@@ -410,11 +426,12 @@ class ProductsPage(ft.Container):
         self.page.update()
     
     def submit2(self, e):
-        keyword = self.search.value.lower() if self.search.value else ""
-        cat = self.search_categoria.value
-        
-        self.produtos_table.rows = []
-        produtos = db.query(Produto).all()
+        with get_db() as db:
+            keyword = self.search.value.lower() if self.search.value else ""
+            cat = self.search_categoria.value
+            
+            self.produtos_table.rows = []
+            produtos = db.query(Produto).all()
         
         for produto in produtos:
             if (keyword in produto.titulo.lower() or keyword in (produto.barcode or "").lower() or keyword == "") and (cat == produto.categoria or cat == None or cat == "todas"):

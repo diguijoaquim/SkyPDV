@@ -5,7 +5,6 @@ from datetime import datetime
 import re
 import win32print
 import logging
-import os
 from sqlalchemy import or_,asc,desc
 from sqlalchemy.sql import func
 from collections import defaultdict
@@ -43,11 +42,18 @@ info= {
 # Altere a string de conexão para MySQL
 db_user = 'root'  # usuário do MySQL
 db_password = ''  # senha do MySQL (deixe vazio se não houver)
-db_host = '127.0.0.1'  # endereço do servidor MySQL
+db_host = '192.168.1.16'  # endereço do servidor MySQL
 db_name = 'skypdv'  # substitua pelo nome do seu banco de dados
 
-# Cria a engine do SQLAlchemy
-engine = sqlalchemy.create_engine(f"mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}", echo=False)
+# Cria a engine do SQLAlchemy com configurações otimizadas de pool
+engine = sqlalchemy.create_engine(
+    f"mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}",
+    echo=False,
+    pool_size=20,  # Aumenta o tamanho do pool
+    max_overflow=30,  # Aumenta o número máximo de conexões extras
+    pool_timeout=60,  # Aumenta o tempo limite de espera por uma conexão
+    pool_recycle=3600  # Recicla conexões após 1 hora
+)
 ano=datetime.now().year
 mes=datetime.now().month
 date=datetime.now().day
@@ -82,64 +88,79 @@ def CriarTabelas():
 #criar uma sessao  db
 Session=sessionmaker(bind=engine)
 
-db=Session()
-def isDataBase():
+from contextlib import contextmanager
+
+@contextmanager
+def get_db():
+    db = Session()
     try:
-        db.query(Usuario).all()
-        return True
-    except:
-        CriarTabelas()
-        CadastrarUsuario(n=info['admin']['nome'], 
-                         c="admin",
-                         u=info['admin']['username'],
-                         s_=info['admin']['password']
-                         )
-        return False
+        yield db
+    finally:
+        db.close()
+
+def isDataBase():
+    with get_db() as db:
+        try:
+            db.query(Usuario).all()
+            return True
+        except:
+            CriarTabelas()
+            CadastrarUsuario(n=info['admin']['nome'], 
+                             c="admin",
+                             u=info['admin']['username'],
+                             s_=info['admin']['password']
+                             )
+            return False
 #essas funcoes podem ser importadas em quarquer class
 
 def CadastrarUsuario(n,c,u,s_):
-    novoUsuario=Usuario(nome=n,cargo=c,username=u,senha=s_)
-    db.add(novoUsuario)
-    db.commit()
-    print(f"O usuario {n} Foi Cadastrado com sucesso")
+    with get_db() as db:
+        novoUsuario=Usuario(nome=n,cargo=c,username=u,senha=s_)
+        db.add(novoUsuario)
+        db.commit()
+        print(f"O usuario {n} Foi Cadastrado com sucesso")
 
 def CadastrarProduto(titulo,barcode,categoria, preco, estoque, image,relatorio_id):
     if titulo != "" and preco is not None and estoque != "" and image != "":
-        produto = Produto(titulo=titulo,barcode=barcode,categoria=categoria, preco=preco,estoque=estoque, image=image)
-        db.add(produto)
-        db.commit()
-        produto=db.query(Produto).filter_by(titulo=titulo,estoque=estoque,preco=preco).first()
-        entrada=EntradaEstoque(nome=produto.titulo,produto_id=produto.id,quantidade=estoque,relatorio_id=relatorio_id)
-        db.add(entrada)
-        db.commit()
-        print(f"O Produto {titulo} foi cadastrado com sucesso")
+        with get_db() as db:
+            produto = Produto(titulo=titulo,barcode=barcode,categoria=categoria, preco=preco,estoque=estoque, image=image)
+            db.add(produto)
+            db.commit()
+            produto=db.query(Produto).filter_by(titulo=titulo,estoque=estoque,preco=preco).first()
+            entrada=EntradaEstoque(nome=produto.titulo,produto_id=produto.id,quantidade=estoque,relatorio_id=relatorio_id)
+            db.add(entrada)
+            db.commit()
+            print(f"O Produto {titulo} foi cadastrado com sucesso")
     else:
         print("Complete todos os campos")
 
 def AtualisarProduto(id,data):
-    produto=db.query(Produto).filter_by(id=data.id).first()
-    produto.titulo=data.titulo
-    produto.preco=data.preco
-    produto.estoque=data.estoque
-    db.commit()
-    print(f"O produto {data.titulo} foi atualizado com sucesso")
+    with get_db() as db:
+        produto=db.query(Produto).filter_by(id=data.id).first()
+        produto.titulo=data.titulo
+        produto.preco=data.preco
+        produto.estoque=data.estoque
+        db.commit()
+        print(f"O produto {data.titulo} foi atualizado com sucesso")
 #funcoes para estoque
 
 def addConta(c):
     """
     adicionar contas clente/mesa
     """
-    conta=ContasAbertas(cliente=c)
-    db.add(conta)
-    db.commit()
+    with get_db() as db:
+        conta=ContasAbertas(cliente=c)
+        db.add(conta)
+        db.commit()
 
 def addItemConta(items,conta_id):
     """
     Adicionar produto à conta
     """
-    produto = ProdutosConta(items=items,conta_id=conta_id)
-    db.add(produto)
-    db.commit()
+    with get_db() as db:
+        produto = ProdutosConta(items=items,conta_id=conta_id)
+        db.add(produto)
+        db.commit()
 
 def serialize(obj):
     """Converte objetos que não são serializáveis em JSON para strings."""
@@ -154,29 +175,27 @@ def default_serializer(obj):
     raise TypeError(f"Tipo {type(obj)} não é serializável para JSON")
 
 def ContaInfoToVenda(id=1):
-    banco=sessionmaker(bind=engine)
-    bb=banco()
-    
-    pedidos = bb.query(ProdutosConta).filter_by(conta_id=id).all()
-    
-    # Converte a lista de pedidos em dicionários
-    pedidos_json = [pedido.__dict__ for pedido in pedidos]
-    
-    # Calcule os totais diretamente dos pedidos
-    return pedidos_json
+    with get_db() as db:
+        pedidos = db.query(ProdutosConta).filter_by(conta_id=id).all()
+        
+        # Converte a lista de pedidos em dicionários
+        pedidos_json = [pedido.__dict__ for pedido in pedidos]
+        
+        # Calcule os totais diretamente dos pedidos
+        return pedidos_json
    
 
 def userLoged():
-        try:
-            user=db.query(Usuario).filter_by(username=get_logged_user()['username']).first()
-            return user
-        except:
-            return None
+        with get_db() as db:
+            try:
+                user=db.query(Usuario).filter_by(username=get_logged_user()['username']).first()
+                return user
+            except:
+                return None
         
 def ContaInfo(id=1):
-    banco=sessionmaker(bind=engine)
-    bb=banco()
-    pedidos = bb.query(ProdutosConta).filter_by(conta_id=id).all()
+    with get_db() as db:
+        pedidos = db.query(ProdutosConta).filter_by(conta_id=id).all()
     
     # Converte a lista de pedidos em dicionários
     pedidos_json = [pedido.__dict__ for pedido in pedidos]
@@ -212,129 +231,170 @@ def calcular_totais(dados):
 
 
 def getContas():
-    try:
-        contas = db.query(ContasAbertas).all() 
-        return contas
-    except:
-        return [] 
+    with get_db() as db:
+        try:
+            contas = db.query(ContasAbertas).all() 
+            return contas
+        except:
+            return [] 
     
 def incrementarStoque(id_produto,qtd,relatorio_id):
-    produto=db.query(Produto).filter_by(id=id_produto).first()
-    if(produto):
-        p=produto.estoque
-        produto.estoque=produto.estoque+qtd
-        entrada=EntradaEstoque(nome=produto.titulo,produto_id=produto.id,quantidade=qtd,relatorio_id=relatorio_id)
-        db.add(entrada)
-        db.commit()
-        return f"Estoque atualizado de {p} para {produto.estoque}"
-    else:
-        return f"O estoque atual e menor que \n a quantidade inserida"
-def decrementarStoque(id_produto,qtd,relatorio_id):
-    produto=db.query(Produto).filter_by(id=id_produto).first()
-    if(produto):
-        p=produto.estoque
-        if produto.estoque>=qtd:
-            produto.estoque=produto.estoque-qtd
-            saida=SaidaEstoque(nome=produto.titulo,produto_id=produto.id,quantidade=qtd,relatorio_id=relatorio_id)
-            db.add(saida)
+    with get_db() as db:
+        produto=db.query(Produto).filter_by(id=id_produto).first()
+        if(produto):
+            p=produto.estoque
+            produto.estoque=produto.estoque+qtd
+            entrada=EntradaEstoque(nome=produto.titulo,produto_id=produto.id,quantidade=qtd,relatorio_id=relatorio_id)
+            db.add(entrada)
             db.commit()
             return f"Estoque atualizado de {p} para {produto.estoque}"
         else:
             return f"O estoque atual e menor que \n a quantidade inserida"
-    else:
-        print("O produto nao foi encontrado")
+def decrementarStoque(id_produto,qtd,relatorio_id):
+    with get_db() as db:
+        produto=db.query(Produto).filter_by(id=id_produto).first()
+        if(produto):
+            p=produto.estoque
+            if produto.estoque>=qtd:
+                produto.estoque=produto.estoque-qtd
+                saida=SaidaEstoque(nome=produto.titulo,produto_id=produto.id,quantidade=qtd,relatorio_id=relatorio_id)
+                db.add(saida)
+                db.commit()
+                return f"Estoque atualizado de {p} para {produto.estoque}"
+            else:
+                return f"O estoque atual e menor que \n a quantidade inserida"
+        else:
+            print("O produto nao foi encontrado")
         
 def deduceStockCart(carrinho,relatorio_id):
-    for i in carrinho:
-        #achar o produto no banco
-        produto=db.query(Produto).filter_by(titulo=i['nome']).first()
-        #reduzir o estoque com a funcao abaixo, para cada item
-        decrementarStoque(produto.id,i['quantidade'],relatorio_id)
+    with get_db() as db:
+        for i in carrinho:
+            #achar o produto no banco
+            produto=db.query(Produto).filter_by(titulo=i['nome']).first()
+            #reduzir o estoque com a funcao abaixo, para cada item
+            decrementarStoque(produto.id,i['quantidade'],relatorio_id)
 
 def checkCartStock(carrinho):
-    #ir no banco verificar se o estoque e suficiente para a venda
-    for i in carrinho:
-        resultado={}
-        produto=db.query(Produto).filter_by(titulo=i['nome']).first()
-        #print(produto.estoque)
-        #se o produto.estoque for maior que quantidade de item retorna True
-        if produto.estoque>=i['quantidade']:
-            print("estoque e suficiente")
-            resultado={"msg":"O estoque e suficiente","resultado":True}
-        else:
-            resultado={"msg":"O estoque nao e suficiente","resultado":False,"produto":i['nome']}
-        return resultado
+    with get_db() as db:
+        #ir no banco verificar se o estoque e suficiente para a venda
+        for i in carrinho:
+            resultado={}
+            produto=db.query(Produto).filter_by(titulo=i['nome']).first()
+            #print(produto.estoque)
+            #se o produto.estoque for maior que quantidade de item retorna True
+            if produto.estoque>=i['quantidade']:
+                print("estoque e suficiente")
+                resultado={"msg":"O estoque e suficiente","resultado":True}
+            else:
+                resultado={"msg":"O estoque nao e suficiente","resultado":False,"produto":i['nome']}
+            return resultado
 
 def verProdutos():
-    return db.query(Produto).all()
+    try:
+        with get_db() as db:
+            return db.query(Produto).all()
+    except:
+        return []
 
 def pegarporCategoria(categoria: str):
-    return db.query(Produto).filter_by(categoria=categoria).all()
+    try:
+        with get_db() as db:
+            return db.query(Produto).filter_by(categoria=categoria).all()
+    except:
+        return []
 
 def pesquisaProduto(query):
-    return db.query(Produto).filter(
-    or_(
-        Produto.titulo.like(f"%{query}%"),
-        Produto.categoria.like(f"%{query}%")
-    )
-).all()
+    try:
+        with get_db() as db:
+            return db.query(Produto).filter(
+            or_(
+                Produto.titulo.like(f"%{query}%"),
+                Produto.categoria.like(f"%{query}%")
+            )
+        ).all()
+    except:
+        return []
 def todosUsers():
-    return db.query(Usuario).all()
+    try:
+        with get_db() as db:
+            return db.query(Usuario).all()
+    except:
+        return []
 def verCaixa():
-    return db.query(Usuario).filter_by(cargo="Caixa").all()
+    with get_db() as db:
+        return db.query(Usuario).filter_by(cargo="Caixa").all()
 def acharUmProduto(id):
-    return db.query(Produto).filter_by(id=id).first()
+    with get_db() as db:
+        return db.query(Produto).filter_by(id=id).first()
 
 def acharUmProduto_barcode(barcode):
-    return db.query(Produto).filter_by(barcode=barcode).first()
+    with get_db() as db:
+        return db.query(Produto).filter_by(barcode=barcode).first()
     
 def deletarProduto(id):
-    p=db.query(Produto).filter_by(id=id).first()
-    db.delete(p)
-    db.commit()
-    print(f"O produto {p.titulo} foi deletado com sucesso!")
+    with get_db() as db:
+        p=db.query(Produto).filter_by(id=id).first()
+        db.delete(p)
+        db.commit()
+        print(f"O produto {p.titulo} foi deletado com sucesso!")
 
 def addVenda(venda):
-    db.add(venda)
-    db.commit()
-    print("Venda Feita")
+    with get_db() as db:
+        db.add(venda)
+        db.commit()
+        print("Venda Feita")
 
 def verVendas():
-    return db.query(ProdutoVenda).all()
+    try:
+        with get_db() as db:
+            return db.query(ProdutoVenda).all()
+    except:
+        return []
 
 def addRelatorio(day, entrada=None):
-    relatorio=RelatorioVenda(nome=f"relatorio{day}",data=day,caixa="admin",funcionario=userLoged().nome if userLoged() else "admin")
-    db.add(relatorio)
-    db.commit()
-    
-    if entrada:
-        for item in entrada:
-            entrada_estoque = EntradaEstoque(
-                nome=item['nome'],
-                quantidade=item['estoque'],
-                produto_id=db.query(Produto).filter_by(titulo=item['nome']).first().id,
-                relatorio_id=relatorio.id
-            )
-            db.add(entrada_estoque)
+    with get_db() as db:
+        relatorio=RelatorioVenda(nome=f"relatorio{day}",data=day,caixa="admin",funcionario=userLoged().nome if userLoged() else "admin")
+        db.add(relatorio)
         db.commit()
-    print("Relatorio Cadastrado")
-    return relatorio
+        
+        if entrada:
+            for item in entrada:
+                entrada_estoque = EntradaEstoque(
+                    nome=item['nome'],
+                    quantidade=item['estoque'],
+                    produto_id=db.query(Produto).filter_by(titulo=item['nome']).first().id,
+                    relatorio_id=relatorio.id
+                )
+                db.add(entrada_estoque)
+            db.commit()
+        print("Relatorio Cadastrado")
+        return relatorio
 
 def RemoveRelatorio(day):
-    relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
-    db.delete(relatorio)
-    db.commit()
-    print("Relatorio Deletado")
+    with get_db() as db:
+        relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
+        db.delete(relatorio)
+        db.commit()
+        print("Relatorio Deletado")
 
 
 def getRelatorios():
-    return db.query(RelatorioVenda).order_by(desc(RelatorioVenda.id)).all()
+    try:
+        with get_db() as db:
+            return db.query(RelatorioVenda).order_by(desc(RelatorioVenda.id)).all()
+    except:
+        return []
 
 def getRelatorioUnico(day):
-    return db.query(RelatorioVenda).filter_by(data=day).first()
+    try:
+        with get_db() as db:
+            return db.query(RelatorioVenda).filter_by(data=day).first()
+    except:
+        return []
 
 def getRelatorioUnicoByID(id):
-    return db.query(RelatorioVenda).filter_by(id=id).first()
+    with get_db() as db:
+        return db.query(RelatorioVenda).filter_by(id=id).first()
 
 def totalRelatorioMoney(day):
     total=0.00
@@ -342,40 +402,45 @@ def totalRelatorioMoney(day):
         total+=v.total_money  
     return total
 def deletarRelatorio(id):
-    p=db.query(RelatorioVenda).filter_by(id=id).first()
-    db.delete(p)
-    db.commit()
+    with get_db() as db:
+        p=db.query(RelatorioVenda).filter_by(id=id).first()
+        db.delete(p)
+        db.commit()
 
 def deletarVendas(id):
-    p=db.query(ProdutoVenda).filter_by(id=id).first()
-    db.delete(p)
-    db.commit()
+    with get_db() as db:
+        p=db.query(ProdutoVenda).filter_by(id=id).first()
+        db.delete(p)
+        db.commit()
 
 def totalVendaMoney(id):
-    produto=db.query(ProdutoVenda).filter_by(id=id).first()
-    total=0.00
-    for i in produto.produtos:
-        total+=i['total']   
-    return total
+    with get_db() as db:
+        produto=db.query(ProdutoVenda).filter_by(id=id).first()
+        total=0.00
+        for i in produto.produtos:
+            total+=i['total']   
+        return total
 
 def totalVendaMoneyRelatorio(day):
-    try:
-        relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
-        total=0.00
-        # Soma apenas o total das vendas
-        for venda in relatorio.vendas:
-            total+=totalVendaMoney(venda.id)
-        money=f"{total:,.2f}".replace(",", " ").replace(".", ",")
-        return money
-    except:
-        return 0
+    with get_db() as db:
+        try:
+            relatorio=db.query(RelatorioVenda).filter_by(data=day).first()
+            total=0.00
+            # Soma apenas o total das vendas
+            for venda in relatorio.vendas:
+                total+=totalVendaMoney(venda.id)
+            money=f"{total:,.2f}".replace(",", " ").replace(".", ",")
+            return money
+        except:
+            return 0
 
 def totalVendaProdutos(id):
-    produto=db.query(ProdutoVenda).filter_by(id=id).first()
-    total=0
-    for i in produto.produtos:
-        total+=1   
-    return total
+    with get_db() as db:
+        produto=db.query(ProdutoVenda).filter_by(id=id).first()
+        total=0
+        for i in produto.produtos:
+            total+=1   
+        return total
 
 def getTotalMoneyCart(carrinho):
     total=0.00
@@ -397,48 +462,52 @@ def getTotalQuantCart(carrinho):
     return quant
 
 def itensListsimple(id):
-    venda=db.query(ProdutoVenda).filter_by(id=id).first()
-    
-    produtos=[]
-    for i in venda.produtos:
-        produtos.append(f"{i['nome']}-{i['quantidade']}")
-    novas_string=", ".join(produtos)
-    return novas_string
+    with get_db() as db:
+        venda=db.query(ProdutoVenda).filter_by(id=id).first()
+        produtos=[]
+        for i in venda.produtos:
+            produtos.append(f"{i['nome']}-{i['quantidade']}")
+        novas_string=", ".join(produtos)
+        return novas_string
 def formatToMoney(data):
     money=f"{data:,.2f}".replace(",", " ").replace(".", ",")
     return money
 def getOneSale(id):
-    return db.query(ProdutoVenda).filter_by(id=id).first()
+    with get_db() as db:
+        return db.query(ProdutoVenda).filter_by(id=id).first()
 
 def StartLogin(username,senha):
-    user=db.query(Usuario).filter_by(username=username,senha=senha).first()
-    if user != None:
-
-        return user
-    else:
-        return False
+    with get_db() as db:
+        user=db.query(Usuario).filter_by(username=username,senha=senha).first()
+        if user != None:
+            return user
+        else:
+            return False
     
 
 def loged():
     return ''
 def changePassword(user,nova):
-    user.senha=nova
-    db.commit()
-    print("senha foi modificada com sucesso")
+    with get_db() as db:
+        user.senha=nova
+        db.commit()
+        print("senha foi modificada com sucesso")
 def getFuncionarios():
-    funcionarios=db.query(Usuario).all()
-    return funcionarios
+    try:
+        with get_db() as db:
+            funcionarios=db.query(Usuario).all()
+            return funcionarios
+    except:
+        return []
 
 def excluir_funcionario(id):
-    session = Session()
-    try:
-        funcionario = session.query(Usuario).filter_by(id=id).first()
-        session.delete(funcionario)
-        session.commit()
-    except:
-        print("erro ao excluir funcionario")
-    finally:
-        session.close()
+    with get_db() as db:
+        try:
+            funcionario = db.query(Usuario).filter_by(id=id).first()
+            db.delete(funcionario)
+            db.commit()
+        except:
+            print("erro ao excluir funcionario")
 
 def CadastrarMetodo(nome, descricao):
     """Cadastra um novo método de pagamento"""
@@ -494,8 +563,10 @@ def userUpdate(data):
         user.username=data['username']
         can=True
     if can:
-        db.commit()
-        print("dados atualizados")
+        with get_db() as db:
+            db.add(user)
+            db.commit()
+            print("dados atualizados")
     else:
         print("Formaulario esta")
 
@@ -590,182 +661,126 @@ def calcular_estoque_restante(estoque_inicial, quantidade_saida):
 
 
 def getSaidas(relatorio_id): 
-    relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
-    if not relatorio:
-        return {}
-    
-    # Usa o relacionamento direto saida_estoque
-    produtos_dict = defaultdict(int)
-    for saida in relatorio.saida_estoque:
-        produtos_dict[saida.nome] += saida.quantidade
+    try:
+        with get_db() as db:
+            relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
+            if not relatorio:
+                return {}
+            
+            # Usa o relacionamento direto saida_estoque
+            produtos_dict = defaultdict(int)
+            for saida in relatorio.saida_estoque:
+                produtos_dict[saida.nome] += saida.quantidade
 
-    return produtos_dict
-
-def getEntradas(relatorio_id):
-    relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
-    if not relatorio:
-        return {}
-    
-    # Usa o relacionamento direto entrada_estoque
-    produtos_dict = defaultdict(int)
-    for entrada in relatorio.entrada_estoque:
-        produtos_dict[entrada.nome] += entrada.quantidade
-
-    return produtos_dict
-
-def getHistoricoEstoque(relatorio_id):
-    """
-    Esta função retorna uma lista de produtos movimentados no estoque usando os relacionamentos
-    entrada_estoque e saida_estoque do RelatorioVenda.
-    """
-    relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
-    if not relatorio:
+            return produtos_dict
+    except:
         return []
+def getEntradas(relatorio_id):
+    try:
+        with get_db() as db:
+            relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
+            if not relatorio:
+                return {}
+            
+            # Usa o relacionamento direto entrada_estoque
+            produtos_dict = defaultdict(int)
+            for entrada in relatorio.entrada_estoque:
+                produtos_dict[entrada.nome] += entrada.quantidade
 
-    # Usa os relacionamentos diretos do RelatorioVenda
-    entradas = relatorio.entrada_estoque
-    saidas = relatorio.saida_estoque
+            return produtos_dict
+    except:
+        return []
+def getHistoricoEstoque(relatorio_id):
+    with get_db() as db:
+        """
+        Esta função retorna uma lista de produtos movimentados no estoque usando os relacionamentos
+        entrada_estoque e saida_estoque do RelatorioVenda.
+        """
+        relatorio = db.query(RelatorioVenda).filter_by(id=relatorio_id).first()
+        if not relatorio:
+            return []
 
-    # Mapeia entradas e saídas por produto
-    entradas_por_produto = {}
-    for entrada in entradas:
-        entradas_por_produto[entrada.produto_id] = entradas_por_produto.get(entrada.produto_id, 0) + entrada.quantidade
+        # Usa os relacionamentos diretos do RelatorioVenda
+        entradas = relatorio.entrada_estoque
+        saidas = relatorio.saida_estoque
 
-    saidas_por_produto = {}
-    for saida in saidas:
-        saidas_por_produto[saida.produto_id] = saidas_por_produto.get(saida.produto_id, 0) + saida.quantidade
+        # Mapeia entradas e saídas por produto
+        entradas_por_produto = {}
+        for entrada in entradas:
+            entradas_por_produto[entrada.produto_id] = entradas_por_produto.get(entrada.produto_id, 0) + entrada.quantidade
 
-    # Lista para armazenar os dados do histórico
-    historico = []
+        saidas_por_produto = {}
+        for saida in saidas:
+            saidas_por_produto[saida.produto_id] = saidas_por_produto.get(saida.produto_id, 0) + saida.quantidade
 
-    # Obtém produtos únicos das movimentações
-    produtos_ids = set(list(entradas_por_produto.keys()) + list(saidas_por_produto.keys()))
-    produtos = db.query(Produto).filter(Produto.id.in_(produtos_ids)).all()
+        # Lista para armazenar os dados do histórico
+        historico = []
 
-    # Calcula os dados para cada produto
-    for produto in produtos:
-        entrada = entradas_por_produto.get(produto.id, 0)
-        saida = saidas_por_produto.get(produto.id, 0)
-        
-        estoque_inicial = produto.estoque + saida - entrada
-        historico.append({
-            "nome": produto.titulo,
-            "estoque_inicial": estoque_inicial,
-            "entrada": entrada,
-            "saida": saida,
-            "estoque_atual": produto.estoque,
-            "categoria": produto.categoria
-        })
+        # Obtém produtos únicos das movimentações
+        produtos_ids = set(list(entradas_por_produto.keys()) + list(saidas_por_produto.keys()))
+        produtos = db.query(Produto).filter(Produto.id.in_(produtos_ids)).all()
 
-    return historico
+        # Calcula os dados para cada produto
+        for produto in produtos:
+            entrada = entradas_por_produto.get(produto.id, 0)
+            saida = saidas_por_produto.get(produto.id, 0)
+            
+            estoque_inicial = produto.estoque + saida - entrada
+            historico.append({
+                "nome": produto.titulo,
+                "estoque_inicial": estoque_inicial,
+                "entrada": entrada,
+                "saida": saida,
+                "estoque_atual": produto.estoque,
+                "categoria": produto.categoria
+            })
+
+        return historico
 
 def getRelatorioEstoque(relatorio_id):
-    relatorio = db.query(RelatorioEstoque).filter_by(relatorio_id=relatorio_id).first()
-    if relatorio:
-        return relatorio.historico
-    else:
-        return []  # Se não encontrar o relatório, retorna uma lista vazia
+    with get_db() as db:
+        relatorio = db.query(RelatorioEstoque).filter_by(relatorio_id=relatorio_id).first()
+        if relatorio:
+            return relatorio.historico
+        else:
+            return []  # Se não encontrar o relatório, retorna uma lista vazia
 
 #get all categories
 def getCategorias():
-    return db.query(Categoria).all()
+    try:
+        with get_db() as db:
+            return db.query(Categoria).all()
+    except:
+        return []
 
 def addCategories(category:str):
-    cat=Categoria(nome=category)
-    db.add(cat)
-    db.commit()
+    with get_db() as db:
+        cat=Categoria(nome=category)
+        db.add(cat)
+        db.commit()
 
 def deleteCategory(id):
-    cat=db.query(Categoria).filter_by(id=id).first()
-    db.delete(cat)
-    db.commit()
+    with get_db() as db:
+        cat=db.query(Categoria).filter_by(id=id).first()
+        db.delete(cat)
+        db.commit()
 
 def updateEstoque(produto_id, quantidade):
-    """
-    Atualiza o estoque de um produto
-    
-    Args:
-        produto_id: ID do produto a ser atualizado
-        quantidade: Nova quantidade a ser adicionada ao estoque
-    """
-    produto = db.query(Produto).filter_by(id=produto_id).first()
-    if produto:
-        estoque_atual = int(produto.estoque)
-        produto.estoque = estoque_atual + quantidade
-        db.commit()
-        print(f"Estoque do produto {produto.titulo} atualizado para {produto.estoque}")
-        return True
-    return False
-
-def abrir_gaveta(printer_name="XP-80C", comando=b'\x1b\x70\x00\x19\xfa'):
-    try:
-        hPrinter = win32print.OpenPrinter(printer_name)
-        hJob = win32print.StartDocPrinter(hPrinter, 1, ("Abrir Gaveta", None, "RAW"))
-        win32print.StartPagePrinter(hPrinter)
-
-        win32print.WritePrinter(hPrinter, comando)
-
-        win32print.EndPagePrinter(hPrinter)
-        win32print.EndDocPrinter(hPrinter)
-        logging.info("Gaveta aberta com sucesso.")
-        return True, "Sucesso", "Gaveta aberta com sucesso."
-    except Exception as e:
-        logging.error(f"Erro ao abrir a gaveta: {e}")
-        return False, "Erro", f"Erro ao abrir a gaveta: {e}"
-    finally:
-        win32print.ClosePrinter(hPrinter)
-
-def print_receipt(dados, printer_name="XP-80C"):
-    try:
-        hPrinter = win32print.OpenPrinter(printer_name)
-        hJob = win32print.StartDocPrinter(hPrinter, 1, ("Receipt", None, "RAW"))
-        win32print.StartPagePrinter(hPrinter)
+    with get_db() as db:
+        """
+        Atualiza o estoque de um produto
         
+        Args:
+            produto_id: ID do produto a ser atualizado
+            quantidade: Nova quantidade a ser adicionada ao estoque
+        """
+        produto = db.query(Produto).filter_by(id=produto_id).first()
+        if produto:
+            estoque_atual = int(produto.estoque)
+            produto.estoque = estoque_atual + quantidade
+            db.commit()
+            print(f"Estoque do produto {produto.titulo} atualizado para {produto.estoque}")
+            return True
+        return False
 
-        esc_pos_commands = b'\x1b\x40'  # Inicia o documento (ESC @)
-        esc_pos_commands += b'\x1b\x45\x01'  # Habilita negrito
-        esc_pos_commands += b'JP INVEST, LTD!\n'
-        esc_pos_commands += b'\x1b\x45\x00'  # Desabilita negrito
-        esc_pos_commands += f'Data: {dados['data']}\n'.encode('utf-8')
-        esc_pos_commands += b'----------------------------------------------\n'
 
-        esc_pos_commands += b"Qnt   Nome   Total\n"
-        esc_pos_commands += b'----------------------------------------------\n'
-        for produto in dados['produtos']:
-            esc_pos_commands += f"{produto['quantidade']}x {produto['nome']} - {produto['total']:.2f} MZN\n".encode('utf-8')
-        esc_pos_commands += b'\x1b\x45\x01'  # Habilita negrito
-        esc_pos_commands += f'TOTAL SAO {dados["total"]:.2f} MZN\n'.encode('utf-8')
-        esc_pos_commands += b'\x1b\x45\x00'  # Desabilita negrito
-        esc_pos_commands += b'---\n'
-        esc_pos_commands += f'Subtotal: {dados["subtotal"]:.2f} MZN\n'.encode('utf-8')
-        esc_pos_commands += f'Taxa de IVA: {dados["iva"]:.2f} MZN\n'.encode('utf-8')
-        esc_pos_commands += f'Total : {dados["total"]:.2f} MZN\n'.encode('utf-8')
-        esc_pos_commands += b'------------------------------------------------\n'
-        esc_pos_commands += f"Metode de Pagamento: {dados['metodo']}\n".encode('utf-8')
-        esc_pos_commands += f'Valor Entrege : {dados["entregue"]}\n'.encode('utf-8')
-        if int(dados['troco'])>0:
-            esc_pos_commands += f'Troco : {dados["troco"]:.2f}\n'.encode('utf-8')
-        esc_pos_commands += b'-----------------------------------------------\n'
-        esc_pos_commands += f'Cliente/Mesa: {dados['cliente']}\n'.encode('utf-8')
-        esc_pos_commands += b'-----------------Volte-Sempre-------------------\n'
-        esc_pos_commands += b'From ElectroGulamo - sistemas\n'
-
-        esc_pos_commands += b'\x1d\x56\x41\x00'
-        if dados['metodo'] =='Cash':
-            print('cash')
-            abrir_gaveta()
-
-        
-
-        win32print.WritePrinter(hPrinter, esc_pos_commands)
-
-        win32print.EndPagePrinter(hPrinter)
-        win32print.EndDocPrinter(hPrinter)
-        logging.info("Recibo impresso com sucesso.")
-        
-        return True, "Sucesso", "Recibo impresso com sucesso."
-    except Exception as e:
-        logging.error(f"Erro ao imprimir recibo: {e}")
-        return False, "Erro", f"Erro ao imprimir recibo: {e}"
-    finally:
-        win32print.ClosePrinter(hPrinter)
