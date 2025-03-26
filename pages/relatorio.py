@@ -11,7 +11,6 @@ class RelatorioPage(ft.Container):
         self.bgcolor = "#F0F8FF"  # Light blue-white background
         self.current_date = datetime.now()
         self.day = self.current_date.strftime("%d-%m-%Y")
-        self.banco = isDataBase()
         self.height=pagex.window.height
         self.hora = ""
         self.data_view = "00-00-0000"

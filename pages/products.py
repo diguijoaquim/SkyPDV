@@ -17,7 +17,6 @@ class ProductsPage(ft.Container):
         self.padding=8
         self.height=page.window.height
         self.bgcolor = "#F0F8FF"  # Light blue-white background
-        self.banco = isDataBase()
         self.current_date = datetime.now()
         self.day = self.current_date.strftime("%d-%m-%Y")
         self.categoria_lista = getCategorias()

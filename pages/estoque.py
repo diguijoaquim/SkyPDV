@@ -10,7 +10,6 @@ class EstoquePage(ft.Container):
         self.height=pagex.window.height
         self.bgcolor = "#F0F8FF"  # Light blue-white background
         self.imagens = os.path.join(os.getenv("LOCALAPPDATA"), ".jpInvest/img")
-        self.banco = isDataBase()
         self.current_date = datetime.now()
         self.day = self.current_date.strftime("%d-%m-%Y")
         self.selected_relatorio_id = None

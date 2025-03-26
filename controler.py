@@ -3,8 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from models.modelos import Base,Produto,Categoria,Usuario,ProdutoVenda,RelatorioVenda,ContasAbertas,ProdutosConta,SaidaEstoque,EntradaEstoque,RelatorioEstoque, MetodoPagamento
 from datetime import datetime
 import re
-import win32print
-import logging
+
 from sqlalchemy import or_,asc,desc
 from sqlalchemy.sql import func
 from collections import defaultdict
@@ -14,6 +13,7 @@ info= {
     "app":"JP Invest",
     "data":{
         "nome":"JP Invest",
+        "logo":"JP",
         "localizacao":"",
         "cidade":"Lichinga",
         "nuit":1667287375365,
@@ -42,7 +42,7 @@ info= {
 # Altere a string de conexão para MySQL
 db_user = 'root'  # usuário do MySQL
 db_password = ''  # senha do MySQL (deixe vazio se não houver)
-db_host = '192.168.1.16'  # endereço do servidor MySQL
+db_host = '127.0.0.1'  # endereço do servidor MySQL
 db_name = 'skypdv'  # substitua pelo nome do seu banco de dados
 
 # Cria a engine do SQLAlchemy com configurações otimizadas de pool
@@ -97,20 +97,31 @@ def get_db():
         yield db
     finally:
         db.close()
-
-def isDataBase():
+def inicializar_db():
     with get_db() as db:
         try:
-            db.query(Usuario).all()
-            return True
-        except:
+            # Tenta criar as tabelas se não existirem
             CriarTabelas()
-            CadastrarUsuario(n=info['admin']['nome'], 
-                             c="admin",
-                             u=info['admin']['username'],
-                             s_=info['admin']['password']
-                             )
+
+            # Verifica se o usuário admin já existe
+            admin = db.query(Usuario).filter_by(username=info['admin']['username']).first()
+            
+            if not admin:
+                print("Admin não encontrado. Criando...")
+                CadastrarUsuario(
+                    n=info['admin']['nome'], 
+                    c="admin",
+                    u=info['admin']['username'],
+                    s_=info['admin']['password']
+                )
+            else:
+                print("Admin já existe.")
+                
+            return True
+        except Exception as e:
+            print(f"Erro ao inicializar o banco: {e}")
             return False
+inicializar_db()
 #essas funcoes podem ser importadas em quarquer class
 
 def CadastrarUsuario(n,c,u,s_):

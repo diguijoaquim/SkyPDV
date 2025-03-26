@@ -15,7 +15,7 @@ from pages.estoque import EstoquePage
 from pages.tables import TablesPage
 from pages.money import MoneyPage
 from pages.relatorio import RelatorioPage
-
+import logging
 
 os.environ["FLET_WS_MAX_MSG_SIZE"] = "8000000"
 def abrir_gaveta(printer_name="XP-80C", comando=b'\x1b\x70\x00\x19\xfa'):
@@ -92,7 +92,6 @@ def print_receipt(dados, printer_name="XP-80C"):
     finally:
         win32print.ClosePrinter(hPrinter)
 selected_file_path = None
-banco=isDataBase()
 current_date = datetime.now()
 quantidade_item=0
 preco_total=0.00
